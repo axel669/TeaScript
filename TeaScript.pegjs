@@ -136,6 +136,10 @@
                 }
                 return "break;";
             }
+        }),
+        Switch: (expr, cases) => ({
+            type: "switch",
+            expr, cases
         })
     };
     const binaryOp = (left, right, op) => ({
@@ -189,10 +193,10 @@ Program
             return [];
         }
         const list = listProcess(first, rest, 1);
-        console.log(list);
-        console.log(
-            list.map(l => l.toJS()).join("\n")
-        );
+        // console.log(list);
+        // console.log(
+        //     list.map(l => l.toJS()).join("\n")
+        // );
         return list;
     }
 
@@ -212,7 +216,15 @@ VariableCreate
         return Token.Let(name, value);
     }
 
-Expression = If / Logical / NullCoalesce
+Expression
+    = If
+    / Switch
+    / Return
+    / Await
+    / Yield
+    / Break
+    / Logical
+    / NullCoalesce
 
 Assignment
     = name:Identifier __ op:("=" / "+=" / "-=" / "*=" / "/=" / "**=") __ value:Expression {
@@ -313,6 +325,17 @@ Break
     / "break" __ value:Expression {return Token.Break(value);}
     / "break" {return Token.Break();}
 
+Switch
+    = "switch" __ expr:NullCoalesce __ "{" _ cases:ValueCases _ "}" {
+        return Token.Switch(expr, cases);
+    }
+ValueCase
+    = "case" __ value:Token __ "{" _ _ "}"
+ValueCases
+    = first:ValueCase? tail:( __ ValueCase)* {
+        return listProcess(first, tail);
+    }
+
 Token
     = Number
     / String
@@ -321,10 +344,6 @@ Token
     / ArrayLiteral
     / ObjectLiteral
     / FunctionCall
-    / Return
-    / Await
-    / Yield
-    / Break
     / Identifier
     / Negated
 
