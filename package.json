@@ -1,0 +1,22 @@
+{
+  "name": "teascript",
+  "version": "0.1.0",
+  "description": "For people who don't care for coffee",
+  "main": "TeaScript.js",
+  "scripts": {
+    "test": "pegjs TeaScript.pegjs | node test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/axel669/TeaScript.git"
+  },
+  "keywords": [
+    "transpile"
+  ],
+  "author": "Axel",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/axel669/TeaScript/issues"
+  },
+  "homepage": "https://github.com/axel669/TeaScript#readme"
+}

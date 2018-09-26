@@ -1,0 +1,58 @@
+let verbs = {
+    $set(prev, value) => value
+    $unset(prev, value) => {
+        let copy = {}
+        for {key, copyValue} in prev {
+            copy[key] = copyValue
+        }
+        return copy
+    }
+    $push(prev, value) => [...prev, value]
+    $append(prev, value) => [...prev, ...value]
+    $apply(prev, value) => value(prev)
+    $filter(prev, value) => prev.filter(value)
+    $merge(prev, value) => {...prev, ...value}
+}
+
+let internal_copyObject = (obj, create = false) => switch {
+    case Array.isArray(obj) == true {
+        break [...obj]
+    }
+    case obj == undefined && create == true {
+        break {}
+    }
+    case typeof obj != "object" || obj == null {
+        break obj
+    }
+    case obj instanceof Map {
+        break Map(obj)
+    }
+    case obj instanceof Set {
+        break Set(obj)
+    }
+    case obj.constructor != Object {
+        break obj
+    }
+    default {
+        break {...obj}
+    }
+}
+
+let internal_setValues = (dest, key, n, value, create) => {
+    let name = key[n]
+    if n == (key.length - 1) {
+        checks[name](dest, value)
+        return verbs[name](dest, value)
+    }
+
+    dest = internal_copyObject(dest, create)
+    dest[name] = internal_setValues(dest[name], key, n + 1, value, create)
+
+    return dest
+}
+
+let update = (source, obj, create = false) =>
+    Object.keys(obj).reduce(
+        (source, key) => internal_setValues(source, key.split("."), 0, obj[key], create)
+        source
+    )
