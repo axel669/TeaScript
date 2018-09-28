@@ -55,7 +55,17 @@
             type: "string",
             text,
             toJS(scope) {
-                return text;
+                if (text.length > 1) {
+                    console.log(text);
+                }
+                return "`" + text.slice(1, -1) + "`";
+            }
+        }),
+        Regex: (regex) => ({
+            type: "regex",
+            regex,
+            toJS(scope) {
+                return regex;
             }
         }),
         Bool: (value) => ({
@@ -138,7 +148,11 @@
             type: "function-call",
             name, args, nullCheck,
             toJS(scope) {
-                return `${name.toJS(scope)}${nullCheck}(${args.map(i => i.toJS(scope)).join(", ")})`;
+                if (nullCheck === "?") {
+                    const ref = Token.Identifier(genVarName(scope, "nullref"));
+                    return `((${ref.toJS()} = ${name.toJS(scope)}) != null ? ${ref.toJS()}(${args.map(i => i.toJS(scope)).join(", ")}) : undefined)`;
+                }
+                return `${name.toJS(scope)}(${args.map(i => i.toJS(scope)).join(", ")})`;
             }
         }),
         NewCall: (name, args) => ({
@@ -197,19 +211,6 @@
             toJS(scope) {
                 const breakValue = token => token.type === "break" && token.value !== null;
                 if (sub === false && (body.findIndex(breakValue) !== -1 || (alternate !== null && alternate.findIndex(breakValue) !== -1))) {
-                    // console.log(
-                    //     Token.FunctionCall(
-                    //         Token.Grouped(
-                    //             Token.FunctionDecl(
-                    //                 [],
-                    //                 [Token.If(condition, body, alternate, true)]
-                    //             )
-                    //         ),
-                    //         "",
-                    //         []
-                    //     ).toJS(scope)
-                    // );
-                    // return `(() => {${ifexpr}})()`;
                     return Token.FunctionCall(
                         Token.Grouped(
                             Token.FunctionDecl(
@@ -402,8 +403,16 @@
             name, extend, body,
             toJS(scope) {
                 const extension = extend ? ` extends ${extend.toJS(scope)}` : "";
+                const className = name ? ` ${name}` : "";
                 const bodyLines = body.map(l => l.toJS(scope)).join("\n");
-                return `class ${name}${extension} {\n${bodyLines}\n}`;
+                return `class${className}${extension} {\n${bodyLines}\n}`;
+            }
+        }),
+        ClassStaticVar: (name, value) => ({
+            type: "class-static-var",
+            name, value,
+            toJS(scope) {
+                return `static ${name} = ${value.toJS(scope)};`;
             }
         }),
         ClassFunction: (name, decorators, args, body) => ({
@@ -425,6 +434,48 @@
 
                 return `${decoString}${name}${argDef}{\n${code}\n}`;
                 // return `constructor(${args.toJS(scope)}) {\n${body.map(i => i.toJS(scope))}\n}`;
+            }
+        }),
+        JSXProp: (key, value) => ({
+            type: "jsx-prop",
+            key, value,
+            toJS(scope) {
+                return `${key}={${value.toJS(scope)}}`;
+            }
+        }),
+        JSXSelfClosing: (tag, props) => ({
+            type: "jsx-self-closing",
+            tag, props,
+            toJS(scope) {
+                return `<${tag} ${props.map(p => p.toJS(scope)).join(' ')} />`;
+            }
+        }),
+        JSXTagOpen: (tag, props) => ({
+            type: "jsx-tag-open",
+            tag, props,
+            toJS(scope) {
+                return `<${tag} ${props.map(p => p.toJS(scope)).join(' ')}>`;
+            }
+        }),
+        JSXTagClose: (tag) => ({
+            type: "jsx-tag-close",
+            tag,
+            toJS(scope) {
+                return `</${tag}>`;
+            }
+        }),
+        JSXTag: (open, children, close) => ({
+            type: "jsx-tag",
+            open, children, close,
+            toJS(scope) {
+                return `${open.toJS(scope)}\n${children.map(c => c.toJS(scope)).join("\n")}\n${close.toJS()}`;
+            }
+        }),
+        JSXContent: (content) => ({
+            type: "jsx-content",
+            content,
+            toJS(scope) {
+                return content;
             }
         })
     };
@@ -452,6 +503,11 @@
 
                 case op === "!=" || op === "==":
                     return `${left.toJS(scope)} ${op}= ${right.toJS(scope)}`;
+
+                case op === "??": {
+                    const ref = Token.Identifier(genVarName(scope, "nullref"));
+                    return `((${ref.toJS()} = ${left.toJS(scope)}) != null ? ${ref.toJS()} : ${right.toJS(scope)})`;
+                }
 
                 default:
                     return `${left.toJS(scope)} ${op} ${right.toJS(scope)}`;
@@ -481,7 +537,7 @@
 }
 
 TopLevel
-    = imports:(_ Import __)* _ program:TopLevelProgram {
+    = _ imports:(_ Import __)* _ program:TopLevelProgram _ {
         try {
             const tree = [...imports, ...program];
 
@@ -650,6 +706,33 @@ Expression
     / Logical
     / Class
     / NullCoalesce
+    / JSX
+
+JSX = JSXSelfClosing / JSXTag
+JSXSelfClosing
+    = "<" tag:JSXTagName __ props:(JSXProp* __)? "/>" {
+        return Token.JSXSelfClosing(tag, props ? props[1] : []);
+    }
+JSXTag
+    = open:JSXTagOpen _ children:(_ (JSX / JSXContent) _)* _ close:JSXTagClose {
+        return Token.JSXTag(open, children.map(c => c[1]), close);
+    }
+JSXTagOpen
+    = "<" tag:JSXTagName props:(__ JSXProp*)? _ ">" {
+        return Token.JSXTagOpen(tag, props ? props[1] : []);
+    }
+JSXTagClose
+    = "</" tag:JSXTagName _ ">" {return Token.JSXTagClose(tag);}
+JSXProp
+    = _ key:Word "=" value:Token {
+        return Token.JSXProp(key, value);
+    }
+    / _ key:Word "=" "{" _ value:Expression _ "}" {
+        return Token.JSXProp(key, value);
+    }
+JSXTagName = $(Word ("." Word)*)
+JSXContent
+    = content:$("\\{" / [^<\n])+ {return Token.JSXContent(content);}
 
 Assignment
     = name:(Identifier / Destructure {return Token.Identifier(text());}) __ op:("=" / "+=" / "-=" / "*=" / "/=" / "**=") __ value:Expression {
@@ -741,28 +824,30 @@ Arg
         };
     }
 
-FunctionCall
+//  Modified token but i dont want to delete this yet
+/* FunctionCall
     = name:(Grouped / Identifier) end:CallBit tail:(CallBit / AccessBit)* {
+    = name:(Grouped / Identifier) end:CallBit {
         let current = end.newCall === true
             ? Token.NewCall(name, end.args)
             : Token.FunctionCall(name, end.nullCheck, end.args);
 
-        for (const item of tail) {
-            if (item.args !== undefined) {
-                if (item.newCall === true) {
-                    current = Token.NewCall(current, item.args);
-                }
-                else {
-                    current = Token.FunctionCall(current, item.nullCheck, item.args);
-                }
-            }
-            else {
-                current = binaryOp(current, item.name, item.op);
-            }
-        }
+        // for (const item of tail) {
+        //     if (item.args !== undefined) {
+        //         if (item.newCall === true) {
+        //             current = Token.NewCall(current, item.args);
+        //         }
+        //         else {
+        //             current = Token.FunctionCall(current, item.nullCheck, item.args);
+        //         }
+        //     }
+        //     else {
+        //         current = binaryOp(current, item.name, item.op);
+        //     }
+        // }
 
         return current;
-    }
+    } */
 CallArgList
     = first:CallArg? rest:(_Separator CallArg)* {
         return listProcess(first, rest, 1);
@@ -779,7 +864,7 @@ CallArg
         };
     }
 CallBit
-    = nullCheck:"?"? "(" _ args:CallArgList _ ")" {
+    = _ nullCheck:"?"? "(" _ args:CallArgList _ ")" {
         return {nullCheck: nullCheck || "", args};
     }
     / "*" "(" _ args:CallArgList _ ")" {
@@ -788,6 +873,9 @@ CallBit
 AccessBit
     = _ op:$("?"? ".") _ name:Identifier {
         return {name, op};
+    }
+    / _ op:$("?"? ".") _ name:String {
+        return {name, op: op === "." ? "access" : "null-access"};
     }
 
 Typeof
@@ -882,13 +970,20 @@ While
     }
 
 Class
-    = "class" __ name:Word extend:(__ "extends" __ (Identifier / FunctionCall))? __ "{" _ body:ClassBody _ "}" {
+    /* = "class" __ name:Word extend:(__ "extends" __ (Identifier / FunctionCall))? __ "{" _ body:ClassBody _ "}" { */
+    /* = "class" name:(__ Word)? extend:(__ "extends" __ Token)? __ "{" _ body:ClassBody _ "}" { */
+    = "class" header:ClassHeader "{" _ body:ClassBody _ "}" {
         return Token.Class(
-            name,
-            extend ? extend[3] : null,
+            header.name,
+            header.extend,
             body
         );
     }
+ClassHeader
+    = __ "extends" __ extend:Token __ {return {name: null, extend};}
+    / __ name:Word __ "extends" __ extend:Token __ {return {name, extend};}
+    / __ name:Word __ {return {name, extend: null};}
+    / __ {return {name: null, extend: null};}
 ClassBody
     = entries:(_ ClassEntry _)* {
         return entries.map(e => e[1]);
@@ -896,27 +991,47 @@ ClassBody
 ClassEntry
     = ClassStaticVar / ClassFunction
 ClassStaticVar
-    = "static" __ name:Word
+    = "static" __ name:Word __ "=" __ value:Expression {
+        return Token.ClassStaticVar(name, value)
+    }
 ClassFunction
     = name:Word func:FunctionDecl {
         return Token.ClassFunction(name, [], func.args, func.body);
     }
 
 Token
-    = Number
-    / Typeof
-    / String
-    / Bool
-    / Null
-    / Undefined
-    / FunctionDecl
-    / FunctionCall
-    / Grouped
-    / ArrayLiteral
-    / ObjectLiteral
-    / Identifier
-    / Negated
-    / Not
+    = first:(
+        Number
+        / Typeof
+        / String
+        / Bool
+        / Null
+        / Undefined
+        / FunctionDecl
+        / Grouped
+        / ArrayLiteral
+        / ObjectLiteral
+        / Identifier
+        / Negated
+        / Not
+        / Regex
+    ) tail:(CallBit / AccessBit / ArrayAccess)* {
+        let current = first;
+        for (const item of tail) {
+            if (item.args !== undefined) {
+                if (item.newCall === true) {
+                    current = Token.NewCall(current, item.args);
+                }
+                else {
+                    current = Token.FunctionCall(current, item.nullCheck, item.args);
+                }
+            }
+            else {
+                current = binaryOp(current, item.name, item.op);
+            }
+        }
+        return current;
+    }
 
 Number
     = text:$("-"? [0-9]+ "." [0-9]+ ("e" ("+" / "-")? [0-9]+)?) {
@@ -941,20 +1056,26 @@ String
         return Token.String(text);
     }
 
+Regex
+    = text:$("/" ("\\/" / [^\/])+ "/" ("g" / "m" / "i")*) {
+        return Token.Regex(text);
+    }
+
 Bool = value:("true" / "false") {return Token.Bool(value === "true");}
 Undefined = "undefined" {return Token.Undefined();}
 Null = "null" {return Token.Null();}
 
 Identifier
-    = _this:"@"? name:Word tail:(DotAccess / ArrayAccess)* {
+    /* = _this:"@"? name:Word tail:(DotAccess / ArrayAccess)* { */
+    = _this:"@"? name:Word {
         let current = Token.Identifier(name);
 
         if (_this !== null) {
             current = binaryOp(Token.Identifier("this"), current, ".");
         }
-        for (const {op, value} of tail) {
-            current = binaryOp(current, value, op);
-        }
+        // for (const {op, value} of tail) {
+        //     current = binaryOp(current, value, op);
+        // }
         return current;
     }
     / "@" {return Token.Identifier("this");}
@@ -965,12 +1086,12 @@ DotAccess
             return {op, value: Token.Identifier(value)};
         }
         else {
-            return {op: op === "." ? "access" : "null-access", value: Token.String(value)};
+            return {op: op === "." ? "access" : "null-access", value};
         }
     }
 ArrayAccess
     = nullish:"?"? "[" value:Expression "]" {
-        return {op: nullish === null ? "access" : "null-access", value};
+        return {op: nullish === null ? "access" : "null-access", name: value};
     }
 
 DotCall
@@ -1035,12 +1156,12 @@ Expansion
     }
 
 Decorator
-    = "@" call:FunctionCall {
+    = "@" call:Token {
         return Token.Decorator(call);
     }
-    / "@" name:Identifier {
+    /* / "@" name:Identifier {
         return Token.Decorator(name);
-    }
+    } */
 
 Comment
     = "//" text:$([^\n]*) {
@@ -1051,9 +1172,9 @@ Comment
     }
 
 __ "Whitespace"
-    = [ \t\r\n]+
+    = (Comment / [ \t\r\n]+)+
 _ "Optional Whitespace"
-    = [ \t\n\r]*
+    = (Comment / [ \t\n\r]+)*
 w__ "Whitespace Separator"
     = [ \t]* [\r\n]+ _
 l__ "Optional Whitespace"

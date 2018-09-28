@@ -1,0 +1,92 @@
+let cssNoMeasurement = Set*([
+    "animationIterationCount"
+    "boxFlex"
+    "boxFlexGroup"
+    "boxOrdinalGroup"
+    "columnCount"
+    "fillOpacity"
+    "flex"
+    "flexGrow"
+    "flexPositive"
+    "flexShrink"
+    "flexNegative"
+    "flexOrder"
+    "fontWeight"
+    "lineClamp"
+    "lineHeight"
+    "opacity"
+    "order"
+    "orphans"
+    "stopOpacity"
+    "strokeDashoffset"
+    "strokeOpacity"
+    "strokeWidth"
+    "tabSize"
+    "widows"
+    "zIndex"
+    "zoom"
+])
+let cssPrefixNames = Set*(["userSelect"])
+let cssPrefixes = [
+    "-webkit-"
+    "-moz-"
+    "-ms-"
+    "-o-"
+    ""
+]
+let cssValueString = (key, value) => switch {
+    case typeof value == "function" {
+        break value()
+    }
+    case typeof value == "number" && cssNoMeasurement.has(key) == false {
+        break "${value}px"
+    }
+    default {
+        break value
+    }
+}
+let arrayify = (obj) => Object.keys(obj)
+    .map((key) => {
+        let mut value = obj[key]
+
+        if typeof value == "object" && Array.isArray(value) == false {
+            value = arrayify(value)
+            return {key, value}
+        }
+
+        return {name: key, value}
+    })
+
+let renderText = (item) => {
+    let {key, name, value} = item
+    let lines = []
+
+    if key != undefined {
+        lines.push("${key}{")
+        for val in value {
+            lines.push(...renderText(val))
+        }
+        lines.push("}")
+    }
+    else {
+        let displayName = name.replace(/[A-Z]/g, (s) => "-${s.toLowerCase()}")
+        if Array.isArray(value) == true {
+            for val in value {
+                lines.push("${displayName}:${cssValueString(name, val)};")
+            }
+        }
+        else {
+            let cssVal = cssValueString(name, value)
+            if cssPrefixNames.has(name) == true {
+                for prefix in cssPrefixes {
+                    lines.push("${prefix}${displayName}:${cssVal};")
+                }
+            }
+            else {
+                lines.push("${displayName}:${cssVal};")
+            }
+        }
+    }
+
+    return lines.join("")
+}

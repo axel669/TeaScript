@@ -1,0 +1,11 @@
+import React, {Component, PureComponent} from "react"
+import doric from "doric-components"
+
+import ItemList from "./ItemList.js"
+
+import yggdrasil from "../yggdrasil.js"
+
+let connect = (store) =>
+    (Parent) => class extends Component {
+        static displayName = "Connected(${Parent.displayName ?? Parent.name})"
+    }
