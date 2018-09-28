@@ -28,4 +28,9 @@ let batchReducer = (reducer) =>
             break reducer(state, action)
         }
 
-export {gen, batchReducer}
+let batched = (target, key, desc) => {
+    desc.value = batchReducer(desc.value)
+    return desc
+}
+
+export {gen, batchReducer, batched}

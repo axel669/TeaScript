@@ -25,10 +25,10 @@ let internal_copyObject = (obj, create = false) => switch {
         break obj
     }
     case obj instanceof Map {
-        break Map(obj)
+        break Map*(obj)
     }
     case obj instanceof Set {
-        break Set(obj)
+        break Set*(obj)
     }
     case obj.constructor != Object {
         break obj

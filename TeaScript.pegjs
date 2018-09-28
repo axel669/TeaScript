@@ -743,11 +743,18 @@ Arg
 
 FunctionCall
     = name:(Grouped / Identifier) end:CallBit tail:(CallBit / AccessBit)* {
-        let current = Token.FunctionCall(name, end.nullCheck, end.args);
+        let current = end.newCall === true
+            ? Token.NewCall(name, end.args)
+            : Token.FunctionCall(name, end.nullCheck, end.args);
 
         for (const item of tail) {
             if (item.args !== undefined) {
-                current = Token.FunctionCall(current, item.nullCheck, item.args);
+                if (item.newCall === true) {
+                    current = Token.NewCall(current, item.args);
+                }
+                else {
+                    current = Token.FunctionCall(current, item.nullCheck, item.args);
+                }
             }
             else {
                 current = binaryOp(current, item.name, item.op);
@@ -774,6 +781,9 @@ CallArg
 CallBit
     = nullCheck:"?"? "(" _ args:CallArgList _ ")" {
         return {nullCheck: nullCheck || "", args};
+    }
+    / "*" "(" _ args:CallArgList _ ")" {
+        return {newCall: true, args};
     }
 AccessBit
     = _ op:$("?"? ".") _ name:Identifier {
@@ -885,10 +895,6 @@ ClassBody
     }
 ClassEntry
     = ClassStaticVar / ClassFunction
-/* ClassConstructor
-    = "constructor" func:FunctionDecl {
-        return Token.ClassFunction("constructor", [], func.args, func.body);
-    } */
 ClassStaticVar
     = "static" __ name:Word
 ClassFunction
