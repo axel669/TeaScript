@@ -21,11 +21,25 @@
     const genVarName = (scope, name) => {
         for (let i = 0; i < 1e6; i += 1) {
             const test = `${name}${i}`;
-            if (scope.has(test) === false) {
-                scope.add(test);
+            if (scope.vars.has(test) === false) {
+                scope.vars.add(test);
                 return test;
             }
         }
+    };
+
+    const Scope = (baseScope = null) => {
+        const vars = new Set(baseScope ? baseScope.vars : []);
+        const flags = {async: false, generator: false};
+        return {vars, flags};
+    };
+    const topLevelScope = Scope();
+
+    const formatBody = (body, scope) => {
+        if (body.length === 0) {
+            return "";
+        }
+        return `\n${body.map(line => line.toJS(scope) + ";").join("\n")}\n`;
     };
 
     const mtoJS = t => t.toJS();
@@ -33,43 +47,43 @@
         Number: value => ({
             type: "number",
             value,
-            toJS() {
+            toJS(scope) {
                 return value.toString();
             }
         }),
         String: text => ({
             type: "string",
             text,
-            toJS() {
+            toJS(scope) {
                 return text;
             }
         }),
         Bool: (value) => ({
             type: "bool",
             value,
-            toJS() {
+            toJS(scope) {
                 return value.toString();
             }
         }),
-        Null: () => ({type: "null", toJS() {return "null";}}),
-        Undefined: () => ({type: "undefined", toJS() {return "undefined";}}),
+        Null: () => ({type: "null", toJS(scope) {return "null";}}),
+        Undefined: () => ({type: "undefined", toJS(scope) {return "undefined";}}),
         Identifier: name => ({
             type: "identifier",
             name,
-            toJS() {
+            toJS(scope) {
                 return name;
             }
         }),
         Grouped: expr => ({
             expr,
-            toJS() {
-                return `(${expr.toJS()})`;
+            toJS(scope) {
+                return `(${expr.toJS(scope)})`;
             }
         }),
         MutableIdentifier: name => ({
             type: "mutable-identifier",
             name,
-            toJS() {
+            toJS(scope) {
                 return name;
             }
         }),
@@ -77,7 +91,6 @@
             type: "create-const",
             name, value,
             toJS(scope) {
-                // return `const ${name.toJS()} = ${value.toJS(scope)};`;
                 return `const ${name.toJS()} = ${value.toJS(scope)}`;
             }
         }),
@@ -85,16 +98,14 @@
             type: "create-let",
             name, value,
             toJS(scope) {
-                // return `let ${name.toJS()} = ${value.toJS(scope)};`;
                 return `let ${name.toJS()} = ${value.toJS(scope)}`;
             }
         }),
         MutList: (names) => ({
             type: "create-let-list",
             names,
-            toJS() {
+            toJS(scope) {
                 const list = names.map(name => `${name} = undefined`)
-                // return `let ${list.join(", ")};`;
                 return `let ${list.join(", ")}`;
             }
         }),
@@ -102,26 +113,32 @@
             type: "function-decl",
             args, body,
             toJS(parentScope) {
-                // const a = args.map(i => i.toJS());
-                const scope = new Set(parentScope);
-                const argDef = `(${args.map(i => i.toJS()).join(', ')}) => `;
-                // const bodyLines = body.map(i => i.toJS(scope)).join("\n");
-                const bodyLines = body.map(i => i.toJS(scope)).join(";\n");
+                // const scope = new Set(parentScope);
+                const scope = Scope(parentScope);
+                const argDef = `(${args.map(i => i.toJS(scope)).join(', ')})`;
+                // const bodyLines = body.map(i => i.toJS(scope)).join(";\n");
+                const bodyLines = formatBody(body, scope);
 
-                // console.log("SCOPE", scope, parentScope);
-                const vars = dif(scope, parentScope);
+                const vars = dif(scope.vars, parentScope.vars);
                 const code = vars.size !== 0
-                    ? `var ${Array.from(vars).join(", ")};\n${bodyLines}`
+                    ? `\nvar ${Array.from(vars).join(", ")};\n${bodyLines}`
                     : bodyLines;
+                let funcDef = `${argDef} => `;
+                if (scope.flags.generator === true) {
+                    funcDef = `function* ${argDef}`;
+                }
+                if (scope.flags.async === true) {
+                    funcDef = `async ${funcDef}`;
+                }
 
-                return `${argDef}{${code};}`;
+                return `${funcDef}{${code}}`;
             }
         }),
         FunctionCall: (name, nullCheck, args) => ({
             type: "function-call",
             name, args, nullCheck,
             toJS(scope) {
-                return `${name.toJS()}${nullCheck}(${args.map(i => i.toJS(scope)).join(", ")})`;
+                return `${name.toJS(scope)}${nullCheck}(${args.map(i => i.toJS(scope)).join(", ")})`;
             }
         }),
         NewCall: (name, args) => ({
@@ -133,16 +150,21 @@
         }),
         Unary: (type, expr, standAlone = true) => ({
             type, expr,
-            toJS(nameGen) {
-                // return `${type} ${expr.toJS()}${standAlone === true ? ";" : ""}`;
-                return `${type} ${expr.toJS()}`;
+            toJS(scope) {
+                if (type === "await") {
+                    scope.flags.async = true;
+                }
+                if (type === "yield") {
+                    scope.flags.generator = true;
+                }
+                return `${type} ${expr.toJS(scope)}`;
             }
         }),
         Array: items => ({
             type: "array",
             items,
-            toJS(nameGen) {
-                return `[${items.map(mtoJS).join(", ")}]`;
+            toJS(scope) {
+                return `[${items.map(i => i.toJS(scope)).join(", ")}]`;
             }
         }),
         Object: pairs => ({
@@ -150,37 +172,59 @@
             pairs,
             toJS(scope) {
                 const p = pairs.map(i => i.toJS(scope));
-                return `{${p.join(", ")}}`;
+                return `{\n${p.join(",\n")}\n}`;
             }
         }),
-        Pair: (key, value) => ({
+        Pair: (decorators, key, value) => ({
             type: "pair",
-            key, value,
+            decorators, key, value,
             toJS(scope) {
-                return `${key.toJS(scope)}: ${value.toJS(scope)}`;
+                const decoString = decorators.length === 0
+                    ? ""
+                    : `${decorators.map(d => d.toJS(scope)).join("\n")}\n`;
+                return `${decoString}${key.toJS(scope)}: ${value.toJS(scope)}`;
             }
         }),
         Null: () => ({
             type: "null",
-            toJS() {
+            toJS(scope) {
                 return "null";
             }
         }),
-        If: (condition, body, alternate) => ({
+        If: (condition, body, alternate, sub = false) => ({
             type: "if",
             condition, body, alternate,
             toJS(scope) {
+                const breakValue = token => token.type === "break" && token.value !== null;
+                if (sub === false && (body.findIndex(breakValue) !== -1 || (alternate !== null && alternate.findIndex(breakValue) !== -1))) {
+                    // console.log(
+                    //     Token.FunctionCall(
+                    //         Token.Grouped(
+                    //             Token.FunctionDecl(
+                    //                 [],
+                    //                 [Token.If(condition, body, alternate, true)]
+                    //             )
+                    //         ),
+                    //         "",
+                    //         []
+                    //     ).toJS(scope)
+                    // );
+                    // return `(() => {${ifexpr}})()`;
+                    return Token.FunctionCall(
+                        Token.Grouped(
+                            Token.FunctionDecl(
+                                [],
+                                [Token.If(condition, body, alternate, true)]
+                            )
+                        ),
+                        "",
+                        []
+                    ).toJS(scope);
+                }
                 const alt = alternate === null
                     ? ""
-                    // : `\nelse {\n${alternate.map(i => i.toJS(scope)).join("\n")}\n}`;
                     : `\nelse {\n${alternate.map(i => i.toJS(scope)).join(";\n")};\n}`;
-                // const ifexpr = `if (${condition.toJS()}) {\n${body.map(i => i.toJS(scope)).join("\n")}\n}${alt}`;
-                const ifexpr = `if (${condition.toJS()}) {\n${body.map(i => i.toJS(scope)).join(";\n")};\n}${alt}`;
-
-                const breakValue = token => token.type === "break" && token.value !== null;
-                if (body.findIndex(breakValue) !== -1 || (alternate !== null && alternate.findIndex(breakValue) !== -1)) {
-                    return `(() => {${ifexpr}})()`;
-                }
+                const ifexpr = `if (${condition.toJS(scope)}) {\n${body.map(i => i.toJS(scope)).join(";\n")};\n}${alt}`;
                 return ifexpr;
             }
         }),
@@ -189,11 +233,9 @@
             value, label,
             toJS(scope) {
                 if (value !== null) {
-                    // return `return ${value.toJS(scope)};`;
                     return `return ${value.toJS(scope)}`;
                 }
                 if (label !== null) {
-                    // return `break ${label};`;
                     return `break ${label}`;
                 }
                 return "break;";
@@ -205,7 +247,16 @@
             toJS(scope) {
                 const body = cases.map(i => i.toJS(scope)).join("\n");
                 const defCase = def === null ? "" : `${def.toJS(scope)}\n`;
-                return `switch (${expr.toJS()}) {\n${body}\n${defCase}}`;
+                const switchexpr = `switch (${expr.toJS(scope)}) {\n${body}\n${defCase}}`;
+                const hasBreakValue = [...cases, def]
+                    .findIndex(
+                        c => c.body.findIndex(tok => tok.type === 'break' && tok.value !== null) !== -1
+                    ) !== -1;
+
+                if (hasBreakValue === true) {
+                    return `(() =>{${switchexpr}})()`;
+                }
+                return switchexpr;
             }
         }),
         ValueCase: (value, body) => ({
@@ -216,9 +267,7 @@
                 if (body.length > 0 && body[body.length - 1].type !== 'break') {
                     bodyCopy.push(Token.Break());
                 }
-                // const bodyLines = bodyCopy.map(i => i.toJS(scope)).join("\n");
                 const bodyLines = bodyCopy.map(i => i.toJS(scope)).join(";\n");
-                // return `case ${value.toJS(scope)}: {\n${bodyLines}\n}`;
                 return `case ${value.toJS(scope)}: {\n${bodyLines};\n}`;
             }
         }),
@@ -230,17 +279,15 @@
                 if (body.length > 0 && body[body.length - 1].type !== 'break') {
                     bodyCopy.push(Token.Break());
                 }
-                const bodyLines = bodyCopy.map(i => i.toJS(scope)).join("\n");
-                return `case (${expr.toJS()}): {\n${bodyLines}\n}`;
+                const bodyLines = bodyCopy.map(i => i.toJS(scope)).join(";\n");
+                return `case (${expr.toJS(scope)}): {\n${bodyLines};\n}`;
             }
         }),
         DefaultCase: (body) => ({
             type: "default-case",
             body,
             toJS(scope) {
-                // const bodyLines = body.map(i => toJS(scope)).join("\n");
-                // return `default: {\n${bodyLines}\n}`;
-                const bodyLines = body.map(i => toJS(scope)).join(";\n");
+                const bodyLines = body.map(i => i.toJS(scope)).join(";\n");
                 return `default: {\n${bodyLines};\n}`;
             }
         }),
@@ -262,10 +309,8 @@
                     loop = `for (const ${key.toJS()} of Object.keys(${objRef.toJS()} = ${expr.toJS(scope)}))`;
                 }
 
-                // const bodyLines = forBody.map(i => i.toJS(scope)).join("\n");
                 const bodyLines = forBody.map(i => i.toJS(scope)).join(";\n");
 
-                // return `${loop} {\n${bodyLines}\n}`;
                 return `${loop} {\n${bodyLines};\n}`;
             }
         }),
@@ -274,8 +319,6 @@
             item, expr, body,
             toJS(scope) {
                 const loop = `for (const ${item.toJS()} of ${expr.toJS(scope)})`;
-                // const bodyLines = body.map(i => i.toJS(scope)).join("\n");
-                // return `${loop} {\n${bodyLines}\n}`;
                 const bodyLines = body.map(i => i.toJS(scope)).join(";\n");
                 return `${loop} {\n${bodyLines};\n}`;
             }
@@ -284,14 +327,13 @@
             type: "while",
             condition, body,
             toJS(scope) {
-                // return `while (${condition.toJS(scope)}) {\n${body.map(i => i.toJS(scope)).join("\n")}\n}`;
                 return `while (${condition.toJS(scope)}) {\n${body.map(i => i.toJS(scope)).join(";\n")};\n}`;
             }
         }),
         Comment: (text) => ({
             type: "comment",
             text,
-            toJS() {
+            toJS(scope) {
                 return `/* ${text} */`;
             }
         }),
@@ -312,20 +354,25 @@
         Import: (structure, source) => ({
             type: "import",
             structure, source,
-            toJS() {
+            toJS(scope) {
                 if (structure === null) {
-                    // return `import ${source.toJS()};`;
                     return `import ${source.toJS()}`;
                 }
-                // return `import ${structure} from ${source.toJS()};`;
                 return `import ${structure} from ${source.toJS()}`;
+            }
+        }),
+        Export: (source, isDefault = false) => ({
+            type: "export",
+            source, isDefault,
+            toJS(scope) {
+                const def = isDefault ? "default " : "";
+                return `export ${def}${source.toJS(scope)}`;
             }
         }),
         Block: (body) => ({
             type: "block",
             body,
             toJS(scope) {
-                // return `{\n${body.map(i => i.toJS(scope)).join("\n")}\n}`;
                 return `{\n${body.map(i => i.toJS(scope)).join(";\n")};\n}`;
             }
         }),
@@ -340,7 +387,44 @@
             type: "assignment",
             name, value, op,
             toJS(scope) {
-                return `(${name.toJS()} ${op} ${value.toJS(scope)})`;
+                return `(${name.toJS(scope)} ${op} ${value.toJS(scope)})`;
+            }
+        }),
+        Decorator: (func) => ({
+            type: "decorator",
+            func,
+            toJS(scope) {
+                return `@${func.toJS(scope)}`;
+            }
+        }),
+        Class: (name, extend, body) => ({
+            type: "class",
+            name, extend, body,
+            toJS(scope) {
+                const extension = extend ? ` extends ${extend.toJS(scope)}` : "";
+                const bodyLines = body.map(l => l.toJS(scope)).join("\n");
+                return `class ${name}${extension} {\n${bodyLines}\n}`;
+            }
+        }),
+        ClassFunction: (name, decorators, args, body) => ({
+            type: "class-func",
+            body,
+            toJS(parentScope) {
+                // const scope = new Set(parentScope);
+                const scope = Scope(parentScope);
+                const argDef = `(${args.map(i => i.toJS(scope)).join(', ')}) `;
+                const bodyLines = body.map(i => i.toJS(scope) + ";").join("\n");
+                const decoString = decorators.length === 0
+                    ? ""
+                    : `${decorators.map(d => d.toJS(parentScope)).join("\n")}\n`;
+
+                const vars = dif(scope.vars, parentScope.vars);
+                const code = vars.size !== 0
+                    ? `var ${Array.from(vars).join(", ")};\n${bodyLines}`
+                    : bodyLines;
+
+                return `${decoString}${name}${argDef}{\n${code}\n}`;
+                // return `constructor(${args.toJS(scope)}) {\n${body.map(i => i.toJS(scope))}\n}`;
             }
         })
     };
@@ -356,7 +440,6 @@
                     return `${left.toJS(scope)}[${right.toJS(scope)}]`;
                 case op === "null-access": {
                     const ref = Token.Identifier(genVarName(scope, "nullref"));
-                    // return `${left.toJS(scope)}?[${right.toJS(scope)}]`;
                     return `((${ref.toJS()} = ${left.toJS(scope)}) != null) ? ${ref.toJS()}[${right.toJS(scope)}] : undefined)`;
                 }
 
@@ -364,7 +447,6 @@
                     return `${left.toJS(scope)}${op}${right.toJS(scope)}`;
                 case op === "?.": {
                     const ref = Token.Identifier(genVarName(scope, "nullref"));
-                    // return `${left.toJS(scope)}${op}${right.toJS(scope)}`;
                     return `((${ref.toJS()} = ${left.toJS(scope)}) != null ? ${ref.toJS()}.${right.toJS(scope)} : undefined)`;
                 }
 
@@ -399,33 +481,39 @@
 }
 
 TopLevel
-    = imports:(_ Import __)* _ program:Program {
-        console.log(imports, program);
+    = imports:(_ Import __)* _ program:TopLevelProgram {
         try {
-            console.log(usedVars);
-            const newScope = new Set(usedVars);
-            // const gen = uniqueGen({ref: 0, key: 0, value: 0});
+            const tree = [...imports, ...program];
+
+            // const newScope = new Set(usedVars);
+            const newScope = Scope(topLevelScope);
             const transpiled = [
                 ...Array.from(globalFuncCalls).map(name => globalFuncs[name]),
                 ...program.map(l => l.toJS(newScope))
             ].join(";\n");
 
-            const vars = dif(newScope, usedVars);
+            // const vars = dif(newScope, usedVars);
+            const vars = dif(newScope.vars, topLevelScope.vars);
             const code = vars.size !== 0
                 ? `var ${Array.from(vars).join(", ")};\n${transpiled}`
                 : transpiled;
             const $code = [
                 ...imports.map(i => i[1].toJS()),
                 code
-            ].join(";\n");
-            // console.log(newScope);
-            console.log($code);
+            ].join(";\n") + ";\n";
+
             window.$code = $code;
+            return {tree, code: $code};
         }
-        catch (e) {
-            console.error(e);
+        catch (e) {console.error(e);}
+    }
+TopLevelProgram
+    = _ first:(Export / Instruction)? rest:(__ (Export / Instruction))* _ {
+        if (first === null) {
+            return [];
         }
-        return program;
+        const list = listProcess(first, rest, 1);
+        return list;
     }
 
 Program
@@ -461,19 +549,29 @@ Import
             : `${name}, ${parts[3]}`;
         return Token.Import(form, source);
     }
-ImportName = name:Word {usedVars.add(name); return name;}
-ImportAs = source:Word __ "as" __ name:Word {usedVars.add(name); return text();}
+ImportName = name:Word {topLevelScope.vars.add(name); return name;}
+ImportAs = source:Word __ "as" __ name:Word {topLevelScope.vars.add(name); return text();}
 ImportStructure
     = "{" _ first:(ImportAs / ImportName) tail:(_ "," _ (ImportAs / ImportName))* "}" {
         const list = [first, ...tail.map(i => i[3])].join(", ");
         return `{${list}}`;
     }
-ImportStar = "*" __ "as" __ name:Word {usedVars.add(name); return text();}
-ImportDefault = name:Word {usedVars.add(name); return text();}
+ImportStar = "*" __ "as" __ name:Word {topLevelScope.vars.add(name); return text();}
+ImportDefault = name:Word {topLevelScope.vars.add(name); return text();}
+
+Export
+    = "export" __ "default" __ expr:Expression {
+        return Token.Export(expr, true);
+    }
+    / "export" __ exports:ExportList {
+        return Token.Export(Token.Identifier(exports));
+    }
+ExportList = $("{" _ ExportEntry (_ "," _ ExportEntry)* _ "}")
+ExportEntry = Word / $(Word __ "as" __ Word)
 
 VariableCreate
     = "let" __ "mut" __ name:Word __ "=" __ value:Expression {
-        usedVars.add(name);
+        topLevelScope.vars.add(name);
         return Token.Mut(Token.Identifier(name), value);
     }
     / "let" __ "mut" __ name:Word tail:(_ "," _ "mut" __ Word)* {
@@ -482,12 +580,12 @@ VariableCreate
             ...tail.map(i => i[5])
         ];
         for (const varName of list) {
-            usedVars.add(varName);
+            topLevelScope.vars.add(varName);
         }
         return Token.MutList(list);
     }
     / "let" __ name:Word __ "=" __ value:Expression {
-        usedVars.add(name);
+        topLevelScope.vars.add(name);
         return Token.Let(Token.Identifier(name), value);
     }
     / "let" __ "mut" __ name:Destructure __ "=" __ value:Expression {
@@ -504,12 +602,12 @@ Destructure
             ...tail.map(i => i[3])
         ];
         if (rest !== null) {
-            usedVars.add(rest[4]);
+            topLevelScope.vars.add(rest[4]);
             tokens.push(`...${rest[4]}`);
         }
         for (const tok of tokens) {
             if (tokenRegex.test(tok) === true) {
-                usedVars.add(tok);
+                topLevelScope.vars.add(tok);
             }
         }
         return `[${tokens.map(i => i === "*" ? "" : i).join(", ")}]`;
@@ -520,19 +618,19 @@ Destructure
             ...tail.map(i => i[3])
         ];
         if (rest !== null) {
-            usedVars.add(rest[4]);
+            topLevelScope.vars.add(rest[4]);
             tokens.push(`...${rest[4]}`);
         }
         for (const tok of tokens) {
             if (tokenRegex.test(tok) === true) {
-                usedVars.add(tok);
+                topLevelScope.vars.add(tok);
             }
         }
         return `{${tokens.map(i => i === "*" ? "" : i).join(", ")}}`;
     }
 DestructureAs
     = name:Word __ "as" __ newName:Word {
-        usedVars.add(newName);
+        topLevelScope.vars.add(newName);
         return `${name}: ${newName}`;
     }
 DestructureNested
@@ -550,6 +648,7 @@ Expression
     / Yield
     / Break
     / Logical
+    / Class
     / NullCoalesce
 
 Assignment
@@ -605,7 +704,13 @@ Negated
 Not = "!" expr:(Identifier / Grouped) {return Token.Not(expr);}
 
 FunctionDecl
-    = "(" _ args:ArgList _ ")" __ "=>" __ expr:Expression {
+    = "(" _ args:ArgList _ ")" __ "=>" __ "{" _ Null _ "}" {
+        return Token.FunctionDecl(
+            args,
+            []
+        );
+    }
+    / "(" _ args:ArgList _ ")" __ "=>" __ expr:Expression {
         return Token.FunctionDecl(
             args,
             // [Token.Grouped(expr)]
@@ -625,6 +730,16 @@ Arg
     }
     / "mut" __ id:Identifier {return Token.MutableIdentifier(id.name);}
     / Identifier
+    / "..." id:Word {
+        const name = Token.Identifier(id);
+        return {
+            type: "cheat",
+            name,
+            toJS(scope) {
+                return `...${id}`;
+            }
+        };
+    }
 
 FunctionCall
     = name:(Grouped / Identifier) end:CallBit tail:(CallBit / AccessBit)* {
@@ -642,8 +757,19 @@ FunctionCall
         return current;
     }
 CallArgList
-    = first:Expression? rest:(_Separator Expression)* {
+    = first:CallArg? rest:(_Separator CallArg)* {
         return listProcess(first, rest, 1);
+    }
+CallArg
+    = Expression
+    / "..." expr:Expression {
+        return {
+            type: "cheat",
+            expr,
+            toJS(scope) {
+                return `...${expr.toJS(scope)}`;
+            }
+        };
     }
 CallBit
     = nullCheck:"?"? "(" _ args:CallArgList _ ")" {
@@ -745,6 +871,31 @@ While
         return Token.While(Token.Bool(true), body);
     }
 
+Class
+    = "class" __ name:Word extend:(__ "extends" __ (Identifier / FunctionCall))? __ "{" _ body:ClassBody _ "}" {
+        return Token.Class(
+            name,
+            extend ? extend[3] : null,
+            body
+        );
+    }
+ClassBody
+    = entries:(_ ClassEntry _)* {
+        return entries.map(e => e[1]);
+    }
+ClassEntry
+    = ClassStaticVar / ClassFunction
+/* ClassConstructor
+    = "constructor" func:FunctionDecl {
+        return Token.ClassFunction("constructor", [], func.args, func.body);
+    } */
+ClassStaticVar
+    = "static" __ name:Word
+ClassFunction
+    = name:Word func:FunctionDecl {
+        return Token.ClassFunction(name, [], func.args, func.body);
+    }
+
 Token
     = Number
     / Typeof
@@ -800,9 +951,7 @@ Identifier
         }
         return current;
     }
-    /* / name:$("@" Word) {
-        return Token.Identifier(name);
-    } */
+    / "@" {return Token.Identifier("this");}
 Word = $([a-zA-Z_$] [$a-zA-Z_\-0-9]*)
 DotAccess
     = _ op:$("?"? ".") _ value:(Word / String) {
@@ -861,26 +1010,14 @@ ObjectLiteral
     }
 ObjectEntry = Pair / Expansion
 Pair
-    = key:(Identifier / CalculatedKey) ":" l__ value:Expression {
-        return Token.Pair(key, value);
+    = decorators:(_ Decorator _)* key:(Identifier / CalculatedKey) ":" l__ value:Expression {
+        return Token.Pair(decorators.map(d => d[1]), key, value);
     }
-    / key:(Identifier / CalculatedKey) "(" _ args:ArgList _ ")" __ "=>" __ expr:AddSub {
-        return Token.Pair(
-            key,
-            Token.FunctionDecl(
-                args,
-                [Token.Unary("return", expr)]
-            )
-        );
+    / decorators:(_ Decorator _)* key:(Identifier / CalculatedKey) func:FunctionDecl {
+        return Token.Pair(decorators.map(d => d[1]), key, func);
     }
-    / key:(Identifier / CalculatedKey) "(" _ args:ArgList _ ")" __ "=>" __ "{" body:Program "}" {
-        return Token.Pair(
-            key,
-            Token.FunctionDecl(args, body)
-        );
-    }
-    / key:Identifier {
-        return Token.Pair(key, key);
+    / decorators:(_ Decorator _)* key:Identifier {
+        return Token.Pair(decorators.map(d => d[1]), key, key);
     }
 CalculatedKey
     = "[" expr:Expression "]" {
@@ -889,6 +1026,14 @@ CalculatedKey
 Expansion
     = "..." expr:Expression {
         return Token.Expansion(expr);
+    }
+
+Decorator
+    = "@" call:FunctionCall {
+        return Token.Decorator(call);
+    }
+    / "@" name:Identifier {
+        return Token.Decorator(name);
     }
 
 Comment

@@ -1,0 +1,31 @@
+let gen = (store) => {
+    let action = (type, constructor = () => {}, dispatches = true) => {
+        let method = (...args) =>
+            {type, ...constructor(...args)}
+        if dispatches == true {
+            method.dispatch = (...args) =>
+                store.dispatch(method(...args))
+        }
+        return method
+    }
+    let batch = action(
+        "batch"
+        (...actions) => {actions}
+    )
+
+    return {action, batch}
+}
+
+let batchReducer = (reducer) =>
+    (state, action) =>
+        if action.type == "batch" {
+            break action.actions.reduce(
+                (state, action) => reducer(state, action)
+                state
+            )
+        }
+        else {
+            break reducer(state, action)
+        }
+
+export {gen, batchReducer}
