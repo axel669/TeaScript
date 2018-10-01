@@ -55,10 +55,13 @@
             type: "string",
             text,
             toJS(scope) {
-                if (text.length > 1) {
-                    console.log(text);
+                if (text.length === 1 && typeof text[0] === "string") {
+                    return `"${text[0]}"`;
                 }
-                return "`" + text.slice(1, -1) + "`";
+                const parts = text.map(
+                    t => typeof t === "string" ? t : `\$\{${t.toJS(scope)}\}`
+                );
+                return `\`${parts.join("")}\``;
             }
         }),
         Regex: (regex) => ({
@@ -477,6 +480,13 @@
             toJS(scope) {
                 return content;
             }
+        }),
+        JSXExpression: (expr) => ({
+            type: "jsx-expression",
+            expr,
+            toJS(scope) {
+                return `{${expr.toJS(scope)}}`;
+            }
         })
     };
     const binaryOp = (left, right, op) => ({
@@ -539,7 +549,7 @@
 TopLevel
     = _ imports:(_ Import __)* _ program:TopLevelProgram _ {
         try {
-            const tree = [...imports, ...program];
+            const tree = [...imports.map(i => i[1]), ...program];
 
             // const newScope = new Set(usedVars);
             const newScope = Scope(topLevelScope);
@@ -558,7 +568,7 @@ TopLevel
                 code
             ].join(";\n") + ";\n";
 
-            window.$code = $code;
+            // window.$code = $code;
             return {tree, code: $code};
         }
         catch (e) {console.error(e);}
@@ -711,10 +721,10 @@ Expression
 JSX = JSXSelfClosing / JSXTag
 JSXSelfClosing
     = "<" tag:JSXTagName __ props:(JSXProp* __)? "/>" {
-        return Token.JSXSelfClosing(tag, props ? props[1] : []);
+        return Token.JSXSelfClosing(tag, props ? props[0] : []);
     }
 JSXTag
-    = open:JSXTagOpen _ children:(_ (JSX / JSXContent) _)* _ close:JSXTagClose {
+    = open:JSXTagOpen _ children:(_ (JSXContent / JSX) _)* _ close:JSXTagClose {
         return Token.JSXTag(open, children.map(c => c[1]), close);
     }
 JSXTagOpen
@@ -732,7 +742,8 @@ JSXProp
     }
 JSXTagName = $(Word ("." Word)*)
 JSXContent
-    = content:$("\\{" / [^<\n])+ {return Token.JSXContent(content);}
+    = "{" _ expr:Expression _ "}" {return Token.JSXExpression(expr);}
+    / content:$("\\{" / [^<\n])+ {return Token.JSXContent(content);}
 
 Assignment
     = name:(Identifier / Destructure {return Token.Identifier(text());}) __ op:("=" / "+=" / "-=" / "*=" / "/=" / "**=") __ value:Expression {
@@ -995,8 +1006,8 @@ ClassStaticVar
         return Token.ClassStaticVar(name, value)
     }
 ClassFunction
-    = name:Word func:FunctionDecl {
-        return Token.ClassFunction(name, [], func.args, func.body);
+    = decorators:(_ Decorator _)* name:Word func:FunctionDecl {
+        return Token.ClassFunction(name, decorators.map(d => d[1]), func.args, func.body);
     }
 
 Token
@@ -1052,9 +1063,31 @@ Number
 Hex = [0-9a-f]i
 
 String
-    = text:$('"' ([^"\\] / "\\\"" / "\\u" . . . .)* '"') {
-        return Token.String(text);
+    = text:('"' ("\\$" / ("${" Expression "}") / [^"\\] / "\\\"" / "\\u" . . . .)* '"') {
+        const bits = text[1].reduce(
+            ({current, all}, next, index) => {
+                if (Array.isArray(next) === true) {
+                    all.push(current.join(""));
+                    all.push(next[1]);
+                    current = [];
+                }
+                else {
+                    current.push(next);
+                }
+
+                if (index === text[1].length - 1 && current.length > 0) {
+                    all.push(current.join(""));
+                }
+
+                return {current, all};
+            },
+            {current: [], all: []}
+        ).all;
+        return Token.String(bits);
     }
+    /* = text:$('"' ([^"\\] / "\\\"" / "\\u" . . . .)* '"') {
+        return Token.String(text);
+    } */
 
 Regex
     = text:$("/" ("\\/" / [^\/])+ "/" ("g" / "m" / "i")*) {
