@@ -1043,6 +1043,13 @@ Token
         }
         return current;
     }
+IdentifierToken
+    = first:Identifier tail:(AccessBit / ArrayAccess)* {
+        return tail.reduce(
+            (current, {op, name}) => binaryOp(current, name, op),
+            first
+        )
+    }
 
 Number
     = text:$("-"? [0-9]+ "." [0-9]+ ("e" ("+" / "-")? [0-9]+)?) {
@@ -1170,14 +1177,17 @@ ObjectLiteral
     }
 ObjectEntry = Pair / Expansion
 Pair
-    = decorators:(_ Decorator _)* key:(Identifier / CalculatedKey) ":" l__ value:Expression {
-        return Token.Pair(decorators.map(d => d[1]), key, value);
+    = decorators:(_ Decorator _)* key:(Identifier / String / CalculatedKey) ":" l__ value:Expression {
+        const k = (key.type === "string" && key.text.length > 1) ? Token.Array([key]) : key;
+        return Token.Pair(decorators.map(d => d[1]), k, value);
     }
-    / decorators:(_ Decorator _)* key:(Identifier / CalculatedKey) func:FunctionDecl {
-        return Token.Pair(decorators.map(d => d[1]), key, func);
+    / decorators:(_ Decorator _)* key:(Identifier / String / CalculatedKey) func:FunctionDecl {
+        const k = (key.type === "string" && key.text.length > 1) ? Token.Array([key]) : key;
+        return Token.Pair(decorators.map(d => d[1]), k, func);
     }
-    / decorators:(_ Decorator _)* key:Identifier {
-        return Token.Pair(decorators.map(d => d[1]), key, key);
+    / decorators:(_ Decorator _)* key:(IdentifierToken / Identifier) {
+        const k = key.right === undefined ? key : key.right;
+        return Token.Pair(decorators.map(d => d[1]), k, key);
     }
 CalculatedKey
     = "[" expr:Expression "]" {
