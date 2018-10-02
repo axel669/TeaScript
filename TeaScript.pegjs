@@ -836,11 +836,12 @@ ArgList
         return listProcess(first, rest, 3);
     }
 Arg
-    = name:Identifier __ "=" __ expr:Expression {
-        return binaryOp(name, expr, "=");
+    = name:(Identifier / Destructure) __ "=" __ expr:Expression {
+        return binaryOp(typeof name === "string" ? Token.Identifier(name) : name, expr, "=");
     }
-    / "mut" __ id:Identifier {return Token.MutableIdentifier(id.name);}
+    / "mut" __ id:(Identifier / Destructure) {return Token.MutableIdentifier(id.name);}
     / Identifier
+    / structure:Destructure {return Token.Identifier(structure);}
     / "..." id:Word {
         const name = Token.Identifier(id);
         return {
