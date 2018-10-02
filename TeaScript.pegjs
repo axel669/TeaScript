@@ -490,6 +490,13 @@
             toJS(scope) {
                 return `{${expr.toJS(scope)}}`;
             }
+        }),
+        Ternary: (condition, truish, falsish) => ({
+            type: "ternary",
+            condition, truish, falsish,
+            toJS(scope) {
+                return `${condition.toJS(scope)} ? ${truish.toJS(scope)} : ${falsish.toJS(scope)}`;
+            }
         })
     };
     const binaryOp = (left, right, op) => ({
@@ -639,7 +646,7 @@ ExportList = $("{" _ ExportEntry (_ "," _ ExportEntry)* _ "}")
 ExportEntry = Word / $(Word __ "as" __ Word)
 
 VariableCreate
-    = "let" __ "mut" __ name:Word __ "=" __ value:Expression {
+    = "let" __ "mut" __ name:Word __ "=" __ value:(Ternary / Expression) {
         topLevelScope.vars.add(name);
         return Token.Mut(Token.Identifier(name), value);
     }
@@ -653,14 +660,14 @@ VariableCreate
         }
         return Token.MutList(list);
     }
-    / "let" __ name:Word __ "=" __ value:Expression {
+    / "let" __ name:Word __ "=" __ value:(Ternary / Expression) {
         topLevelScope.vars.add(name);
         return Token.Let(Token.Identifier(name), value);
     }
-    / "let" __ "mut" __ name:Destructure __ "=" __ value:Expression {
+    / "let" __ "mut" __ name:Destructure __ "=" __ value:(Ternary / Expression) {
         return Token.Mut(Token.Identifier(name), value);
     }
-    / "let" __ name:Destructure __ "=" __ value:Expression {
+    / "let" __ name:Destructure __ "=" __ value:(Ternary / Expression) {
         return Token.Let(Token.Identifier(name), value);
     }
 
@@ -752,7 +759,7 @@ JSXContent
     / content:$("\\{" / [^<\n])+ {return Token.JSXContent(content);}
 
 Assignment
-    = name:(Identifier / Destructure {return Token.Identifier(text());}) __ op:("=" / "+=" / "-=" / "*=" / "/=" / "**=") __ value:Expression {
+    = name:(Identifier / Destructure {return Token.Identifier(text());}) __ op:("=" / "+=" / "-=" / "*=" / "/=" / "**=") __ value:(Ternary / Expression) {
         return Token.Assignment(name, value, op);
     }
 
@@ -773,6 +780,10 @@ Compare
         return Token.Grouped(logical);
     }
 
+Ternary
+    = condition:Logical __ "?" __ truish:Expression __ ":"__ falsish:Expression {
+        return Token.Ternary(condition, truish, falsish);
+    }
 NullCoalesce
     = head:AddSub tail:(__ "??" __ AddSub)* {
         return tailProcess(head, tail);
@@ -810,7 +821,7 @@ FunctionDecl
             []
         );
     }
-    / "(" _ args:ArgList _ ")" __ "=>" __ expr:Expression {
+    / "(" _ args:ArgList _ ")" __ "=>" __ expr:(Ternary / Expression) {
         return Token.FunctionDecl(
             args,
             // [Token.Grouped(expr)]
@@ -899,11 +910,11 @@ Typeof
     = "typeof" __ expr:(NullCoalesce / Logical) {return Token.Unary("typeof", expr, false);}
 
 Return
-    = "return" __ expr:Expression {return Token.Unary("return", expr);}
+    = "return" __ expr:(Ternary / Expression) {return Token.Unary("return", expr);}
 Await
     = "await" __ expr:Expression {return Token.Unary("await", expr, false);}
 Yield
-    = "yield" __ expr:Expression {return Token.Unary("yield", expr, false);}
+    = "yield" __ expr:(Ternary / Expression) {return Token.Unary("yield", expr, false);}
 
 Delete
     = "delete" __ expr:Expression {return Token.Unary("delete", expr);}
