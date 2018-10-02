@@ -923,7 +923,7 @@ Break
     / "break" {return Token.Break();}
 
 Switch
-    = "switch" __ expr:Logical __ "{" _ cases:ValueCases _ def:DefaultCase? _ "}" {
+    = "switch" __ expr:NullCoalesce __ "{" _ cases:ValueCases _ def:DefaultCase? _ "}" {
         return Token.Switch(expr, cases, def);
     }
     / "switch" __ "{" _ cases:CompareCases _ def:DefaultCase? _ "}" {
