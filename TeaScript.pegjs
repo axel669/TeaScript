@@ -443,6 +443,9 @@
             type: "jsx-prop",
             key, value,
             toJS(scope) {
+                if (key === null) {
+                    return `{...${value.toJS(scope)}}`;
+                }
                 return `${key}={${value.toJS(scope)}}`;
             }
         }),
@@ -740,6 +743,9 @@ JSXProp
     / _ key:Word "=" "{" _ value:Expression _ "}" {
         return Token.JSXProp(key, value);
     }
+    / "{..." expr:(Token / Grouped) "}" {
+        return Token.JSXProp(null, expr);
+    }
 JSXTagName = $(Word ("." Word)*)
 JSXContent
     = "{" _ expr:Expression _ "}" {return Token.JSXExpression(expr);}
@@ -981,8 +987,6 @@ While
     }
 
 Class
-    /* = "class" __ name:Word extend:(__ "extends" __ (Identifier / FunctionCall))? __ "{" _ body:ClassBody _ "}" { */
-    /* = "class" name:(__ Word)? extend:(__ "extends" __ Token)? __ "{" _ body:ClassBody _ "}" { */
     = "class" header:ClassHeader "{" _ body:ClassBody _ "}" {
         return Token.Class(
             header.name,
@@ -1092,9 +1096,6 @@ String
         ).all;
         return Token.String(bits);
     }
-    /* = text:$('"' ([^"\\] / "\\\"" / "\\u" . . . .)* '"') {
-        return Token.String(text);
-    } */
 
 Regex
     = text:$("/" ("\\/" / [^\/])+ "/" ("g" / "m" / "i")*) {
@@ -1106,16 +1107,12 @@ Undefined = "undefined" {return Token.Undefined();}
 Null = "null" {return Token.Null();}
 
 Identifier
-    /* = _this:"@"? name:Word tail:(DotAccess / ArrayAccess)* { */
     = _this:"@"? name:Word {
         let current = Token.Identifier(name);
 
         if (_this !== null) {
             current = binaryOp(Token.Identifier("this"), current, ".");
         }
-        // for (const {op, value} of tail) {
-        //     current = binaryOp(current, value, op);
-        // }
         return current;
     }
     / "@" {return Token.Identifier("this");}
