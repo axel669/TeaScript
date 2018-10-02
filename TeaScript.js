@@ -3635,7 +3635,7 @@ function peg$parse(input, options) {
     var s0, s1, s2, s3, s4, s5;
 
     s0 = peg$currPos;
-    s1 = peg$parseIdentifier();
+    s1 = peg$parseIdentifierToken();
     if (s1 === peg$FAILED) {
       s1 = peg$currPos;
       s2 = peg$parseDestructure();

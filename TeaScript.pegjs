@@ -759,7 +759,7 @@ JSXContent
     / content:$("\\{" / [^<\n])+ {return Token.JSXContent(content);}
 
 Assignment
-    = name:(Identifier / Destructure {return Token.Identifier(text());}) __ op:("=" / "+=" / "-=" / "*=" / "/=" / "**=") __ value:(Ternary / Expression) {
+    = name:(IdentifierToken / Destructure {return Token.Identifier(text());}) __ op:("=" / "+=" / "-=" / "*=" / "/=" / "**=") __ value:(Ternary / Expression) {
         return Token.Assignment(name, value, op);
     }
 
