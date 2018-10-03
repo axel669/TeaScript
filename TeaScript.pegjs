@@ -449,6 +449,9 @@
                 if (key === null) {
                     return `{...${value.toJS(scope)}}`;
                 }
+                if (value === undefined) {
+                    return key;
+                }
                 return `${key}={${value.toJS(scope)}}`;
             }
         }),
@@ -755,6 +758,9 @@ JSXProp
     }
     / "{..." expr:(Token / Grouped) "}" {
         return Token.JSXProp(null, expr);
+    }
+    / _ key:Word {
+        return Token.JSXProp(key, undefined);
     }
 JSXTagName = $(Word ("." Word)*)
 JSXContent
