@@ -401,14 +401,17 @@
                 return `@${func.toJS(scope)}`;
             }
         }),
-        Class: (name, extend, body) => ({
+        Class: (decorators, name, extend, body) => ({
             type: "class",
-            name, extend, body,
+            decorators, name, extend, body,
             toJS(scope) {
+                const decoString = decorators.length === 0
+                    ? ""
+                    : `${decorators.map(d => d.toJS(scope)).join("\n")}\n`;
                 const extension = extend ? ` extends ${extend.toJS(scope)}` : "";
                 const className = name ? ` ${name}` : "";
                 const bodyLines = body.map(l => l.toJS(scope)).join("\n");
-                return `class${className}${extension} {\n${bodyLines}\n}`;
+                return `${decoString}class${className}${extension} {\n${bodyLines}\n}`;
             }
         }),
         ClassStaticVar: (name, value) => ({
@@ -999,8 +1002,9 @@ While
     }
 
 Class
-    = "class" header:ClassHeader "{" _ body:ClassBody _ "}" {
+    = decorators:(_ Decorator _)* "class" header:ClassHeader "{" _ body:ClassBody _ "}" {
         return Token.Class(
+            decorators.map(d => d[1]),
             header.name,
             header.extend,
             body
