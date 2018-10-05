@@ -9333,9 +9333,12 @@ function peg$parse(input, options) {
   function peg$parseArrayEntry() {
     var s0;
 
-    s0 = peg$parseExpression();
+    s0 = peg$parseTernary();
     if (s0 === peg$FAILED) {
-      s0 = peg$parseExpansion();
+      s0 = peg$parseExpression();
+      if (s0 === peg$FAILED) {
+        s0 = peg$parseExpansion();
+      }
     }
 
     return s0;
@@ -9598,7 +9601,10 @@ function peg$parse(input, options) {
         if (s3 !== peg$FAILED) {
           s4 = peg$parsel__();
           if (s4 !== peg$FAILED) {
-            s5 = peg$parseExpression();
+            s5 = peg$parseTernary();
+            if (s5 === peg$FAILED) {
+              s5 = peg$parseExpression();
+            }
             if (s5 !== peg$FAILED) {
               peg$savedPos = s0;
               s1 = peg$c291(s1, s2, s5);

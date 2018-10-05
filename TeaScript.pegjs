@@ -1182,7 +1182,7 @@ ArrayLiteral
 
         return current;
     }
-ArrayEntry = Expression / Expansion
+ArrayEntry = Ternary / Expression / Expansion
 
 Range
     = start:NullCoalesce "..." end:NullCoalesce inc:(__ "by" __ NullCoalesce)? {
@@ -1196,7 +1196,7 @@ ObjectLiteral
     }
 ObjectEntry = Pair / Expansion
 Pair
-    = decorators:(_ Decorator _)* key:(Identifier / String / CalculatedKey) ":" l__ value:Expression {
+    = decorators:(_ Decorator _)* key:(Identifier / String / CalculatedKey) ":" l__ value:(Ternary / Expression) {
         const k = (key.type === "string" && key.text.length > 1) ? Token.Array([key]) : key;
         return Token.Pair(decorators.map(d => d[1]), k, value);
     }
