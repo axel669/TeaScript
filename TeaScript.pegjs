@@ -55,7 +55,7 @@
             type: "string",
             text,
             toJS(scope) {
-                if (text.length === 1 && typeof text[0] === "string") {
+                if (text.length === 1 && typeof text[0] === "string" && text[0].indexOf("\n") === -1) {
                     return `"${text[0]}"`;
                 }
                 const parts = text.map(
