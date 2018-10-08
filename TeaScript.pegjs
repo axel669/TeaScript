@@ -192,14 +192,14 @@
                 return `{\n${p.join(",\n")}\n}`;
             }
         }),
-        Pair: (decorators, key, value) => ({
+        Pair: (decorators, key, value, sep = ":") => ({
             type: "pair",
             decorators, key, value,
             toJS(scope) {
                 const decoString = decorators.length === 0
                     ? ""
                     : `${decorators.map(d => d.toJS(scope)).join("\n")}\n`;
-                return `${decoString}${key.toJS(scope)}: ${value.toJS(scope)}`;
+                return `${decoString}${key.toJS(scope)}${sep} ${value.toJS(scope)}`;
             }
         }),
         Null: () => ({
@@ -674,50 +674,65 @@ VariableCreate
         return Token.Mut(Token.Identifier(name), value);
     }
     / "let" __ name:Destructure __ "=" __ value:(Ternary / Expression) {
-        return Token.Let(Token.Identifier(name), value);
+        return Token.Let(name, value);
     }
 
 Destructure
-    = "[" first:(Word / "*" / Destructure) tail:(_ "," _ (Word / "*" / Destructure))* rest:(_ "," _ "..." Word)? "]" {
+    = "[" first:(DestructureDefault / Identifier / "*" / Destructure) tail:(_ "," _ (DestructureDefault / Identifier / "*" / Destructure))* rest:(_ "," _ "..." Word)? "]" {
         const tokens = [
             first,
             ...tail.map(i => i[3])
-        ];
+        ]
+        .map(
+            tok => (tok === "*") ? Token.Identifier("") : tok
+        );
         if (rest !== null) {
             topLevelScope.vars.add(rest[4]);
-            tokens.push(`...${rest[4]}`);
+            tokens.push(Token.Identifier(`...${rest[4]}`));
+            // tokens.push(`...${rest[4]}`);
         }
         for (const tok of tokens) {
-            if (tokenRegex.test(tok) === true) {
-                topLevelScope.vars.add(tok);
+            if (tokenRegex.test(tok.name) === true) {
+                topLevelScope.vars.add(tok.name);
             }
         }
-        return `[${tokens.map(i => i === "*" ? "" : i).join(", ")}]`;
+        return Token.Array(tokens);
+        // return `[${tokens.map(i => i === "*" ? "" : i).join(", ")}]`;
+        // return Token.Identifier(`[${tokens.map(i => i === "*" ? "" : i).join(", ")}]`);
     }
-    / "{" first:(DestructureAs / DestructureNested / Word) tail:(_ "," _ (DestructureAs / DestructureNested / Word))* rest:(_ "," _ "..." Word)? "}" {
+    / "{" first:(DestructureAs / DestructureNested / DestructureDefault / Identifier) tail:(_ "," _ (DestructureAs / DestructureNested / DestructureDefault / Identifier))* rest:(_ "," _ "..." Word)? "}" {
         const tokens = [
             first,
             ...tail.map(i => i[3])
         ];
         if (rest !== null) {
             topLevelScope.vars.add(rest[4]);
-            tokens.push(`...${rest[4]}`);
+            tokens.push(Token.Identifier(`...${rest[4]}`));
+            // tokens.push(`...${rest[4]}`);
         }
         for (const tok of tokens) {
-            if (tokenRegex.test(tok) === true) {
-                topLevelScope.vars.add(tok);
+            if (tokenRegex.test(tok.name) === true) {
+                topLevelScope.vars.add(tok.name);
             }
         }
-        return `{${tokens.map(i => i === "*" ? "" : i).join(", ")}}`;
+        return Token.Object(tokens);
+        // return `{${tokens.map(i => i === "*" ? "" : i).join(", ")}}`;
     }
 DestructureAs
     = name:Word __ "as" __ newName:Word {
         topLevelScope.vars.add(newName);
-        return `${name}: ${newName}`;
+        return Token.Pair([], Token.Identifier(name), Token.Identifier(newName));
+        // return `${name}: ${newName}`;
     }
 DestructureNested
     = key:Word ":" __ value:Destructure {
-        return `${key}: ${value}`;
+        return Token.Pair([], Token.Identifier(key), value);
+        // return `${key}: ${value}`;
+    }
+DestructureDefault
+    = name:Word __ "=" __ value:(Number / String / IdentifierToken) {
+        return Token.Pair([], Token.Identifier(name), value, "=");
+        // return `${key} = ${value.toJS()}
     }
 
 Expression
