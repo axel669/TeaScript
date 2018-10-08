@@ -437,8 +437,15 @@
                 const code = vars.size !== 0
                     ? `var ${Array.from(vars).join(", ")};\n${bodyLines}`
                     : bodyLines;
+                let funcName = name;
+                if (scope.flags.generator === true) {
+                    funcName = `${funcName}*`;
+                }
+                if (scope.flags.async === true) {
+                    funcName = `async ${funcName}`;
+                }
 
-                return `${decoString}${name}${argDef}{\n${code}\n}`;
+                return `${decoString}${funcName}${argDef}{\n${code}\n}`;
                 // return `constructor(${args.toJS(scope)}) {\n${body.map(i => i.toJS(scope))}\n}`;
             }
         }),
