@@ -145,22 +145,31 @@ function peg$parse(input, options) {
               try {
                   const tree = [...imports.map(i => i[1]), ...program];
 
-                  // const newScope = new Set(usedVars);
-                  const newScope = Scope(topLevelScope);
-                  const transpiled = [
-                      ...Array.from(globalFuncCalls).map(name => globalFuncs[name]),
-                      ...program.map(l => l.toJS(newScope))
-                  ].join(";\n");
+                  const $code = (() => {
+                      try {
+                          // const newScope = new Set(usedVars);
+                          const newScope = Scope(topLevelScope);
+                          const transpiled = [
+                              ...Array.from(globalFuncCalls).map(name => globalFuncs[name]),
+                              ...program.map(l => l.toJS(newScope))
+                          ].join(";\n");
 
-                  // const vars = dif(newScope, usedVars);
-                  const vars = dif(newScope.vars, topLevelScope.vars);
-                  const code = vars.size !== 0
-                      ? `var ${Array.from(vars).join(", ")};\n${transpiled}`
-                      : transpiled;
-                  const $code = [
-                      ...imports.map(i => i[1].toJS()),
-                      code
-                  ].join(";\n") + ";\n";
+                          // const vars = dif(newScope, usedVars);
+                          const vars = dif(newScope.vars, topLevelScope.vars);
+                          const code = vars.size !== 0
+                              ? `var ${Array.from(vars).join(", ")};\n${transpiled}`
+                              : transpiled;
+                          // const $code = [
+                          return [
+                              ...imports.map(i => i[1].toJS()),
+                              code
+                          ].join(";\n") + ";\n";
+                      }
+                      catch (e) {
+                          console.error(e);
+                      }
+                      return undefined;
+                  })();
 
                   // window.$code = $code;
                   return {tree, code: $code};
@@ -10752,6 +10761,7 @@ function peg$parse(input, options) {
                   const defCase = def === null ? "" : `${def.toJS(scope)}\n`;
                   const switchexpr = `switch (${expr.toJS(scope)}) {\n${body}\n${defCase}}`;
                   const hasBreakValue = [...cases, def]
+                      .filter(item => item !== null)
                       .findIndex(
                           c => c.body.findIndex(tok => tok.type === 'break' && tok.value !== null) !== -1
                       ) !== -1;
