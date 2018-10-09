@@ -125,7 +125,7 @@
         FunctionDecl: (args, body) => ({
             type: "function-decl",
             args, body,
-            toJS(parentScope) {
+            toJS(parentScope, forceName = null) {
                 // const scope = new Set(parentScope);
                 const scope = Scope(parentScope);
                 const argDef = `(${args.map(i => i.toJS(scope)).join(', ')})`;
@@ -137,6 +137,9 @@
                     ? `\nvar ${Array.from(vars).join(", ")};\n${bodyLines}`
                     : bodyLines;
                 let funcDef = `${argDef} => `;
+                if (forceName !== null) {
+                    funcDef = `${forceName}${argDef} `;
+                }
                 if (scope.flags.generator === true) {
                     funcDef = `function* ${argDef}`;
                 }
@@ -192,13 +195,16 @@
                 return `{\n${p.join(",\n")}\n}`;
             }
         }),
-        Pair: (decorators, key, value, sep = ":") => ({
+        Pair: (accessMod, decorators, key, value, sep = ":") => ({
             type: "pair",
-            decorators, key, value,
+            accessMod, decorators, key, value,
             toJS(scope) {
                 const decoString = decorators.length === 0
                     ? ""
                     : `${decorators.map(d => d.toJS(scope)).join("\n")}\n`;
+                if (accessMod !== "") {
+                    return `${decoString}${value.toJS(scope, `${accessMod} ${key.toJS(scope)}`)}`;
+                }
                 return `${decoString}${key.toJS(scope)}${sep} ${value.toJS(scope)}`;
             }
         }),
@@ -728,17 +734,17 @@ Destructure
 DestructureAs
     = name:Word __ "as" __ newName:Word {
         topLevelScope.vars.add(newName);
-        return Token.Pair([], Token.Identifier(name), Token.Identifier(newName));
+        return Token.Pair("", [], Token.Identifier(name), Token.Identifier(newName));
         // return `${name}: ${newName}`;
     }
 DestructureNested
     = key:Word ":" __ value:Destructure {
-        return Token.Pair([], Token.Identifier(key), value);
+        return Token.Pair("", [], Token.Identifier(key), value);
         // return `${key}: ${value}`;
     }
 DestructureDefault
     = name:Word __ "=" __ value:(Number / String / IdentifierToken) {
-        return Token.Pair([], Token.Identifier(name), value, "=");
+        return Token.Pair("", [], Token.Identifier(name), value, "=");
         // return `${key} = ${value.toJS()}
     }
 
@@ -1220,15 +1226,15 @@ ObjectEntry = Pair / Expansion
 Pair
     = decorators:(_ Decorator _)* key:(Identifier / String / CalculatedKey) ":" l__ value:(Ternary / Expression) {
         const k = (key.type === "string" && key.text.length > 1) ? Token.Array([key]) : key;
-        return Token.Pair(decorators.map(d => d[1]), k, value);
+        return Token.Pair("", decorators.map(d => d[1]), k, value);
     }
-    / decorators:(_ Decorator _)* key:(Identifier / String / CalculatedKey) func:FunctionDecl {
+    / decorators:(_ Decorator _)* accessMod:(("get" / "set") __)? key:(Identifier / String / CalculatedKey) func:FunctionDecl {
         const k = (key.type === "string" && key.text.length > 1) ? Token.Array([key]) : key;
-        return Token.Pair(decorators.map(d => d[1]), k, func);
+        return Token.Pair(accessMod ? accessMod[0] : "", decorators.map(d => d[1]), k, func);
     }
     / decorators:(_ Decorator _)* key:(IdentifierToken / Identifier) {
         const k = key.right === undefined ? key : key.right;
-        return Token.Pair(decorators.map(d => d[1]), k, key);
+        return Token.Pair("", decorators.map(d => d[1]), k, key);
     }
 CalculatedKey
     = "[" expr:Expression "]" {
