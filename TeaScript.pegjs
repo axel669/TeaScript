@@ -874,11 +874,15 @@ ArgList
     }
 Arg
     = name:(Identifier / Destructure) __ "=" __ expr:Expression {
-        return binaryOp(typeof name === "string" ? Token.Identifier(name) : name, expr, "=");
+        // return binaryOp(typeof name === "string" ? Token.Identifier(name) : name, expr, "=");
+        return binaryOp(name, expr, "=");
     }
-    / "mut" __ id:(Identifier / Destructure) {return Token.MutableIdentifier(id.name);}
+    /* / "mut" __ id:(Identifier / Destructure) {return Token.MutableIdentifier(id.name);} */
+    / "mut" __ id:Identifier {return Token.MutableIdentifier(id.name);}
+    /* / "mut" __ id:Destructure {return id;} */
     / Identifier
-    / structure:Destructure {return Token.Identifier(structure);}
+    /* / structure:Destructure {return Token.Identifier(structure);} */
+    / Destructure
     / "..." id:Word {
         const name = Token.Identifier(id);
         return {
