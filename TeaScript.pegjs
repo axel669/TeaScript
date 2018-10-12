@@ -14,6 +14,7 @@
         range: "var range=function(a,b){for(var c=2<arguments.length&&void 0!==arguments[2]?arguments[2]:1,d=[],e=a;0<c&&e<b||0>c&&e>b;)d.push(e),e+=c;return d};"
     };
     const globalFuncCalls = new Set();
+    // let lastRef = null;
 
     const dif = (a, b) => new Set(Array.from(a).filter(i => b.has(i) === false));
 
@@ -41,7 +42,20 @@
         }
         return `\n${body.map(line => line.toJS(scope) + ";").join("\n")}\n`;
     };
+    const genScopeVars = (scope, parentScope) => {
+        const vars = dif(scope.vars, parentScope.vars);
+        if (vars.size === 0) {
+            return "";
+        }
+        return `var ${Array.from(vars).join(", ")};\n`;
+    };
 
+    const lastRef = (value, ref) => ({
+        ref,
+        toString() {
+            return value;
+        }
+    });
     const mtoJS = t => t.toJS();
     const Token = {
         Number: value => ({
@@ -155,8 +169,25 @@
             name, args, nullCheck,
             toJS(scope) {
                 if (nullCheck === "?") {
+                    if (name.type === "bin-op" && name.op === "?.") {
+                        const nullRef = Token.Identifier(genVarName(scope, "callref")).toJS();
+                        const nullRef2 = Token.Identifier(genVarName(scope, "callref")).toJS();
+                        const code = [
+                            `${nullRef} = ${name.left.toJS(scope)}`,
+                            `${nullRef2} = ${binaryOp(Token.Identifier(nullRef), name.right, name.op).toJS(scope)}`,
+                            `${nullRef2} != null ? ${nullRef2}.bind(${nullRef})(${args.map(i => i.toJS(scope)).join(", ")}) : undefined`
+                        ].join(", ");
+                        return `(${code})`;
+                    }
                     const ref = Token.Identifier(genVarName(scope, "nullref"));
                     return `((${ref.toJS()} = ${name.toJS(scope)}) != null ? ${ref.toJS()}(${args.map(i => i.toJS(scope)).join(", ")}) : undefined)`;
+                }
+                if (name.type === "bin-op" && name.op === "?.") {
+                    return binaryOp(
+                        name.left,
+                        Token.FunctionCall(name.right, nullCheck, args),
+                        "?."
+                    ).toJS(scope);
                 }
                 return `${name.toJS(scope)}(${args.map(i => i.toJS(scope)).join(", ")})`;
             }
@@ -517,6 +548,40 @@
             toJS(scope) {
                 return `${condition.toJS(scope)} ? ${truish.toJS(scope)} : ${falsish.toJS(scope)}`;
             }
+        }),
+        Try: (attempt, cancel, error, final) => ({
+            type: "try-catch",
+            attempt, cancel, error, final,
+            toJS(parentScope) {
+                if (error === null) {
+                    error = [
+                        Token.Identifier("erorr"),
+                        [Token.FunctionCall(
+                            binaryOp(Token.Identifier("console"), Token.Identifier("error"), "."),
+                            "",
+                            [Token.Identifier("error")]
+                        )]
+                    ];
+                }
+                const tryScope = Scope(parentScope);
+                const catchScope = Scope(parentScope);
+                const finallyScope = Scope(parentScope);
+
+                const tryLines = attempt.map(i => i.toJS(tryScope) + ";").join("\n");
+                const catchLines = error[1].map(i => i.toJS(catchScope) + ";").join("\n");
+                const finallyLines = (final === null) ? [] : final.map(i => i.toJS(finallyScope) + ";").join("\n");
+
+                const tryCode = `${genScopeVars(tryScope, parentScope)}${tryLines}`;
+                const catchCode = `${genScopeVars(catchScope, parentScope)}${catchLines}`;
+                const finallyCode = `${genScopeVars(finallyScope, parentScope)}${finallyLines}`;
+
+                const finallyText = (final === null) ? "" : `\nfinally {\n${finallyLines}\n}`;
+
+                parentScope.flags.async = tryScope.flags.async || catchScope.flags.async || finallyScope.flags.async;
+                parentScope.flags.generator = tryScope.flags.generator || catchScope.flags.generator || finallyScope.flags.generator;
+
+                return `try {\n${tryCode}\n}\ncatch (${error[0].toJS()}) {\n${catchCode}\n}${finallyText}`;
+            }
         })
     };
     const binaryOp = (left, right, op) => ({
@@ -572,6 +637,27 @@
             first,
             ...rest.map(item => item[i]).filter(item => item !== null)
         ];
+    const processTail = (first, tail) => {
+        let current = first;
+        for (const item of tail) {
+            if (item.args !== undefined) {
+                if (item.newCall === true) {
+                    current = Token.NewCall(current, item.args);
+                }
+                else {
+                    if (item.name !== undefined) {
+                        current = binaryOp(current, Token.Identifier(item.name), `${item.nullish || ""}.`);
+                    }
+                    // console.log(current);
+                    current = Token.FunctionCall(current, item.nullCheck, item.args);
+                }
+            }
+            else {
+                current = binaryOp(current, item.name, item.op);
+            }
+        }
+        return current;
+    };
 
     const tokenRegex = /^[a-zA-Z_$][a-zA-Z_$0-9]*$/;
 }
@@ -763,6 +849,7 @@ Expression
     / For
     / While
     / Switch
+    / Try
     / Return
     / Await
     / Yield
@@ -771,6 +858,23 @@ Expression
     / Class
     / NullCoalesce
     / JSX
+
+Try
+    = "try" __ "{" _ body:Program _ "}" error:Catch? final:Finally? {
+            return Token.Try(body, null, error, final);
+    }
+Cancel
+    = __ "cancel" __ "{" _ body:Program _ "}" {
+        return body;
+    }
+Catch
+    = __ "catch" __ name:Word __ "{" _ body:Program _ "}" {
+        return [Token.Identifier(name), body];
+    }
+Finally
+    = __ "finally" __ "{" _ body:Program _ "}" {
+        return body;
+    }
 
 JSX = JSXSelfClosing / JSXTag
 JSXSelfClosing
@@ -947,6 +1051,9 @@ CallBit
     = _ nullCheck:"?"? "(" _ args:CallArgList _ ")" {
         return {nullCheck: nullCheck || "", args};
     }
+    /* / _ op:("?"? ".") _ name:String _ nullCheck:"?"? "(" _ args:CallArgList _ ")" {
+        return {
+    } */
     / "*" "(" _ args:CallArgList _ ")" {
         return {newCall: true, args};
     }
@@ -1095,21 +1202,22 @@ Token
         / Not
         / Regex
     ) tail:(CallBit / AccessBit / ArrayAccess)* {
-        let current = first;
-        for (const item of tail) {
-            if (item.args !== undefined) {
-                if (item.newCall === true) {
-                    current = Token.NewCall(current, item.args);
-                }
-                else {
-                    current = Token.FunctionCall(current, item.nullCheck, item.args);
-                }
-            }
-            else {
-                current = binaryOp(current, item.name, item.op);
-            }
-        }
-        return current;
+        return processTail(first, tail);
+        // let current = first;
+        // for (const item of tail) {
+        //     if (item.args !== undefined) {
+        //         if (item.newCall === true) {
+        //             current = Token.NewCall(current, item.args);
+        //         }
+        //         else {
+        //             current = Token.FunctionCall(current, item.nullCheck, item.args);
+        //         }
+        //     }
+        //     else {
+        //         current = binaryOp(current, item.name, item.op);
+        //     }
+        // }
+        // return current;
     }
 IdentifierToken
     = first:Identifier tail:(AccessBit / ArrayAccess)* {
@@ -1194,20 +1302,22 @@ ArrayAccess
     = nullish:"?"? "[" value:Expression "]" {
         return {op: nullish === null ? "access" : "null-access", name: value};
     }
+    / nullish:"?"? "[" range:SliceRange "]" {
+        return {op: "slice", nullish, name: "slice", args: [range.start, range.end]};
+    }
 
 DotCall
     = _ op:$("?"? ".") _ name:Identifier call:CallBit {
         return {op, value: Token.FunctionCall(name, call.nullCheck, call.args)};
     }
 ArrayLiteral
-    = "[" _ first:ArrayEntry? rest:(_Separator ArrayEntry?)* _ "]" tail:(DotCall / DotAccess / ArrayAccess)* {
+    /* = "[" _ first:ArrayEntry? rest:(_Separator ArrayEntry?)* _ "]" tail:(DotCall / DotAccess / ArrayAccess)* { */
+    = "[" _ first:ArrayEntry? rest:(_Separator ArrayEntry?)* _ "]" {
         let current = Token.Array(listProcess(first, rest, 1));
-        for (const {op, value} of tail) {
-            current = binaryOp(current, value, op);
-        }
         return current;
     }
-    / "[" range:Range map:(":" __ FunctionDecl)? _ "]" tail:(DotCall / DotAccess / ArrayAccess)* {
+    /* / "[" range:Range map:(":" __ FunctionDecl)? _ "]" tail:(DotCall / DotAccess / ArrayAccess)* { */
+    / "[" range:Range map:(":" __ FunctionDecl)? _ "]" {
         const tok = Token.FunctionCall(Token.Identifier("range"), "", [range.start, range.end, range.inc]);
         let current = tok;
 
@@ -1218,9 +1328,6 @@ ArrayLiteral
                 [map[2]]
             );
         }
-        for (const {op, value} of tail) {
-            current = binaryOp(current, value, op);
-        }
 
         return current;
     }
@@ -1230,6 +1337,16 @@ Range
     = start:NullCoalesce "..." end:NullCoalesce inc:(__ "by" __ NullCoalesce)? {
         globalFuncCalls.add("range");
         return Token.Range(start, end, inc ? inc[3] : Token.Number(1));
+    }
+SliceRange
+    = start:NullCoalesce "..." end:NullCoalesce {
+        return {start, end};
+    }
+    / start:NullCoalesce "..." {
+        return {start, end: Token.Undefined()};
+    }
+    / "..." end:NullCoalesce {
+        return {start: Token.Number(0), end};
     }
 
 ObjectLiteral
