@@ -1048,7 +1048,7 @@ CallArg
         };
     }
 CallBit
-    = _ nullCheck:"?"? "(" _ args:CallArgList _ ")" {
+    = nullCheck:"?"? "(" _ args:CallArgList _ ")" {
         return {nullCheck: nullCheck || "", args};
     }
     /* / _ op:("?"? ".") _ name:String _ nullCheck:"?"? "(" _ args:CallArgList _ ")" {
