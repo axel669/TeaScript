@@ -1,4 +1,11 @@
 #!/usr/bin/env node
 
+const path = require("path");
+
 require("./require.js");
-require(process.argv[2]);
+require(
+    path.resolve(
+        process.cwd(),
+        process.argv[2]
+    )
+);
