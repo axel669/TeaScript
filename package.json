@@ -1,10 +1,13 @@
 {
   "name": "@axel669/teascript",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "For people who don't care for coffee",
   "main": "TeaScript.js",
   "scripts": {
     "test": "pegjs TeaScript.pegjs | node test.js"
+  },
+  "bin": {
+    "tea": "./drink-tea.js"
   },
   "repository": {
     "type": "git",
