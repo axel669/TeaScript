@@ -4,15 +4,19 @@ const fs = require("fs");
 
 const tea = require("./TeaScript.js");
 
-const req = Module.prototype.require;
-Module.prototype.require = function(src) {
-    if (src.endsWith(".tea") === true) {
-        const fileName = require.resolve(src);
-        const source = tea.parse(fs.readFileSync(fileName, {encoding: "utf8"})).code;
-        const m = new Module(src, module.parent);
-        m.filename = fileName;
-        m._compile(source, src);
-        return m.exports;
+const _load = Module.prototype.load;
+Module.prototype.load = function(source) {
+    if (source.endsWith(".tea") === true) {
+        const fileName = require.resolve(source);
+        const code = fs.readFileSync(fileName, {encoding: "utf8"});
+
+        this.filename = source;
+        this.paths = Module._nodeModulePaths(path.dirname(fileName));
+        this._compile(code, source);
     }
-    return req.call(this, src);
+    else {
+        _load.call(this, source);
+    }
+    this.loaded = true;
+    return true;
 };
