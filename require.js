@@ -8,7 +8,9 @@ const _load = Module.prototype.load;
 Module.prototype.load = function(source) {
     if (source.endsWith(".tea") === true) {
         const fileName = require.resolve(source);
-        const code = fs.readFileSync(fileName, {encoding: "utf8"});
+        const code = tea.parse(
+            fs.readFileSync(fileName, {encoding: "utf8"})
+        ).code;
 
         this.filename = source;
         this.paths = Module._nodeModulePaths(path.dirname(fileName));
