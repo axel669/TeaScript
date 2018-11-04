@@ -1,9 +1,8 @@
 const fs = require("fs");
 
 const parser = require("./TeaScript.js");
+const $code = fs.readFileSync(process.argv[2], {encoding: "utf8"});
 
 console.log(
-    parser.parse(
-        fs.readFileSync("immutable-update.tea", {encoding: 'utf8'})
-    )
+    parser.parse($code).code
 );
