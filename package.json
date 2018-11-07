@@ -1,13 +1,13 @@
 {
   "name": "@axel669/teascript",
-  "version": "0.6.5",
+  "version": "0.7.0",
   "description": "For people who don't care for coffee",
   "main": "TeaScript.js",
   "scripts": {
     "test": "pegjs TeaScript.pegjs | node test.js"
   },
   "bin": {
-    "tea": "./drink-tea.js"
+    "tea": "./command-line/drink-tea.js"
   },
   "repository": {
     "type": "git",
@@ -21,5 +21,8 @@
   "bugs": {
     "url": "https://github.com/axel669/TeaScript/issues"
   },
-  "homepage": "https://github.com/axel669/TeaScript#readme"
+  "homepage": "https://github.com/axel669/TeaScript#readme",
+  "dependencies": {
+    "js-beautify": "^1.8.8"
+  }
 }

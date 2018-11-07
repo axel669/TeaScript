@@ -2,15 +2,19 @@ const Module = require("module");
 const path = require("path");
 const fs = require("fs");
 
-const tea = require("./TeaScript.js");
+// const tea = require("./TeaScript.js");
+const transpile = require("./command-line/transpile.js");
 
 const _load = Module.prototype.load;
 Module.prototype.load = function(source) {
     if (source.endsWith(".tea") === true) {
         const fileName = require.resolve(source);
-        const code = tea.parse(
-            fs.readFileSync(fileName, {encoding: "utf8"})
-        ).code;
+        const code = transpile(
+            fs.readFileSync(filename, {encoding: "utf8"})
+        );
+        // const code = tea.parse(
+        //     fs.readFileSync(fileName, {encoding: "utf8"})
+        // ).code;
 
         this.filename = source;
         this.paths = Module._nodeModulePaths(path.dirname(fileName));

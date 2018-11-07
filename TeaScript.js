@@ -12671,14 +12671,14 @@ function peg$parse(input, options) {
                       return `${left.toJS(scope)}[${right.toJS(scope)}]`;
                   case op === "null-access": {
                       const ref = Token.Identifier(genVarName(scope, "nullref"));
-                      return `((${ref.toJS()} = ${left.toJS(scope)}) != null) ? ${ref.toJS()}[${right.toJS(scope)}] : undefined)`;
+                      return `(((${ref.toJS()} = ${left.toJS(scope)}) != null) ? ${ref.toJS()}[${right.toJS(scope)}] : undefined)`;
                   }
 
                   case op === ".":
                       return `${left.toJS(scope)}${op}${right.toJS(scope)}`;
                   case op === "?.": {
                       const ref = Token.Identifier(genVarName(scope, "nullref"));
-                      return `((${ref.toJS()} = ${left.toJS(scope)}) != null ? ${ref.toJS()}.${right.toJS(scope)} : undefined)`;
+                      return `(((${ref.toJS()} = ${left.toJS(scope)}) != null ? ${ref.toJS()}.${right.toJS(scope)} : undefined)`;
                   }
 
                   case op === "!=" || op === "==":
