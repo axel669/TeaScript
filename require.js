@@ -10,7 +10,7 @@ Module.prototype.load = function(source) {
     if (source.endsWith(".tea") === true) {
         const fileName = require.resolve(source);
         const code = transpile(
-            fs.readFileSync(filename, {encoding: "utf8"})
+            fs.readFileSync(fileName, {encoding: "utf8"})
         );
         // const code = tea.parse(
         //     fs.readFileSync(fileName, {encoding: "utf8"})
