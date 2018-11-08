@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 
 // const tea = require("./TeaScript.js");
-const transpile = require("./command-line/transpile.js");
+const transpile = require("./command-line/transpiler.js");
 
 const _load = Module.prototype.load;
 Module.prototype.load = function(source) {
