@@ -75,7 +75,7 @@
                 const parts = text.map(
                     t => typeof t === "string" ? t : `\$\{${t.toJS(scope)}\}`
                 );
-                return `\`${parts.join("")}\``;
+                return `\`${parts.join("").replace(/`/g, "\\`")}\``;
             }
         }),
         Regex: (regex) => ({

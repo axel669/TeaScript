@@ -1,10 +1,11 @@
 {
   "name": "@axel669/teascript",
-  "version": "0.7.6",
+  "version": "0.7.7",
   "description": "For people who don't care for coffee",
   "main": "TeaScript.js",
   "scripts": {
-    "test": "pegjs TeaScript.pegjs | node test.js"
+    "test": "pegjs TeaScript.pegjs | node test.js",
+    "build-parser": "pegjs --cache TeaScript.pegjs"
   },
   "bin": {
     "tea": "./command-line/drink-tea.js"
