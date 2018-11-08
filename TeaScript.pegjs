@@ -208,7 +208,8 @@
                 if (type === "yield") {
                     scope.flags.generator = true;
                 }
-                return `${type} ${expr.toJS(scope)}`;
+                const exprStr = expr ? expr.toJS(scope) : "";
+                return `${type} ${exprStr}`.trim();
             }
         }),
         Array: items => ({
@@ -230,13 +231,20 @@
             type: "pair",
             accessMod, decorators, key, value,
             toJS(scope) {
-                const decoString = decorators.length === 0
+                const simpled = decorators.filter(dec => dec.type === "simple-decorator");
+                const normald = decorators.filter(dec => dec.type !== "simple-decorator");
+                const decoString = normald.length === 0
                     ? ""
-                    : `${decorators.map(d => d.toJS(scope)).join("\n")}\n`;
+                    : `${normald.map(d => d.toJS(scope)).join("\n")}\n`;
                 if (accessMod !== "") {
                     return `${decoString}${value.toJS(scope, `${accessMod} ${key.toJS(scope)}`)}`;
                 }
-                return `${decoString}${key.toJS(scope)}${sep} ${value.toJS(scope)}`;
+                const valueStr = simpled.reduceRight(
+                    (current, deco) => deco.toJS(scope, current),
+                    value.toJS(scope)
+                );
+                // return `${decoString}${key.toJS(scope)}${sep} ${value.toJS(scope)}`;
+                return `${decoString}${key.toJS(scope)}${sep} ${valueStr}`;
             }
         }),
         Null: () => ({
@@ -439,6 +447,13 @@
                 return `@${func.toJS(scope)}`;
             }
         }),
+        SimpleDecorator: (func) => ({
+            type: "simple-decorator",
+            func,
+            toJS(scope, content) {
+                return `${func.toJS(scope)}(${content})`;
+            }
+        }),
         Class: (decorators, name, extend, body) => ({
             type: "class",
             decorators, name, extend, body,
@@ -582,6 +597,13 @@
 
                 return `try {\n${tryCode}\n}\ncatch (${error[0].toJS()}) {\n${catchCode}\n}${finallyText}`;
             }
+        }),
+        BinMagic: (comment) => ({
+            type: "bin-magic",
+            comment,
+            toJS() {
+                return comment;
+            }
         })
     };
     const binaryOp = (left, right, op) => ({
@@ -663,26 +685,24 @@
 }
 
 TopLevel
-    = _ imports:(_ Import __)* _ program:TopLevelProgram _ {
+    = bin:(BinMagic n__ / _) imports:(_ Import __)* _ program:TopLevelProgram _ {
         try {
             const tree = [...imports.map(i => i[1]), ...program];
 
             const $code = (() => {
                 try {
-                    // const newScope = new Set(usedVars);
                     const newScope = Scope(topLevelScope);
                     const transpiled = [
                         ...Array.from(globalFuncCalls).map(name => globalFuncs[name]),
                         ...program.map(l => l.toJS(newScope))
                     ].join(";\n");
 
-                    // const vars = dif(newScope, usedVars);
                     const vars = dif(newScope.vars, topLevelScope.vars);
                     const code = vars.size !== 0
                         ? `var ${Array.from(vars).join(", ")};\n${transpiled}`
                         : transpiled;
-                    // const $code = [
-                    return [
+                    const binMagic = bin.length == 2 ? bin[0].toJS() + "\n" : "";
+                    return binMagic + [
                         ...imports.map(i => i[1].toJS()),
                         code
                     ].join(";\n") + ";\n";
@@ -705,6 +725,11 @@ TopLevelProgram
         }
         const list = listProcess(first, rest, 1);
         return list;
+    }
+
+BinMagic
+    = comment:$("#!" ("/" [a-zA-Z0-9_]+)*) {
+        return Token.BinMagic(comment);
     }
 
 Program
@@ -780,7 +805,7 @@ VariableCreate
         return Token.Let(Token.Identifier(name), value);
     }
     / "let" __ "mut" __ name:Destructure __ "=" __ value:(Ternary / Expression) {
-        return Token.Mut(Token.Identifier(name), value);
+        return Token.Mut(name, value);
     }
     / "let" __ name:Destructure __ "=" __ value:(Ternary / Expression) {
         return Token.Let(name, value);
@@ -1070,6 +1095,7 @@ Typeof
 
 Return
     = "return" __ expr:(Ternary / Expression) {return Token.Unary("return", expr);}
+    / "return" {return Token.Unary("return");}
 Await
     = "await" __ expr:Expression {return Token.Unary("await", expr, false);}
 Yield
@@ -1275,7 +1301,7 @@ Regex
     }
 
 Bool = value:("true" / "false") {return Token.Bool(value === "true");}
-Undefined = "undefined" {return Token.Undefined();}
+Undefined = ("undefined" / "void") {return Token.Undefined();}
 Null = "null" {return Token.Null();}
 
 Identifier
@@ -1311,12 +1337,10 @@ DotCall
         return {op, value: Token.FunctionCall(name, call.nullCheck, call.args)};
     }
 ArrayLiteral
-    /* = "[" _ first:ArrayEntry? rest:(_Separator ArrayEntry?)* _ "]" tail:(DotCall / DotAccess / ArrayAccess)* { */
     = "[" _ first:ArrayEntry? rest:(_Separator ArrayEntry?)* _ "]" {
         let current = Token.Array(listProcess(first, rest, 1));
         return current;
     }
-    /* / "[" range:Range map:(":" __ FunctionDecl)? _ "]" tail:(DotCall / DotAccess / ArrayAccess)* { */
     / "[" range:Range map:(":" __ FunctionDecl)? _ "]" {
         const tok = Token.FunctionCall(Token.Identifier("range"), "", [range.start, range.end, range.inc]);
         let current = tok;
@@ -1355,15 +1379,15 @@ ObjectLiteral
     }
 ObjectEntry = Pair / Expansion
 Pair
-    = decorators:(_ Decorator _)* key:(Identifier / String / CalculatedKey) ":" l__ value:(Ternary / Expression) {
+    = decorators:(_ (SimpleDecorator / Decorator) _)* key:(Identifier / String / CalculatedKey) ":" l__ value:(Ternary / Expression) {
         const k = (key.type === "string" && key.text.length > 1) ? Token.Array([key]) : key;
         return Token.Pair("", decorators.map(d => d[1]), k, value);
     }
-    / decorators:(_ Decorator _)* accessMod:(("get" / "set") __)? key:(Identifier / String / CalculatedKey) func:FunctionDecl {
+    / decorators:(_ (SimpleDecorator / Decorator) _)* accessMod:(("get" / "set") __)? key:(Identifier / String / CalculatedKey) func:FunctionDecl {
         const k = (key.type === "string" && key.text.length > 1) ? Token.Array([key]) : key;
         return Token.Pair(accessMod ? accessMod[0] : "", decorators.map(d => d[1]), k, func);
     }
-    / decorators:(_ Decorator _)* key:(IdentifierToken / Identifier) {
+    / decorators:(_ (SimpleDecorator / Decorator) _)* key:(IdentifierToken / Identifier) {
         const k = key.right === undefined ? key : key.right;
         return Token.Pair("", decorators.map(d => d[1]), k, key);
     }
@@ -1379,6 +1403,10 @@ Expansion
 Decorator
     = "@" call:Token {
         return Token.Decorator(call);
+    }
+SimpleDecorator
+    = "@@" call:Token {
+        return Token.SimpleDecorator(call);
     }
     /* / "@" name:Identifier {
         return Token.Decorator(name);
@@ -1396,6 +1424,8 @@ __ "Whitespace"
     = (Comment / [ \t\r\n]+)+
 _ "Optional Whitespace"
     = (Comment / [ \t\n\r]+)*
+n__ "Newline"
+    = [\r\n]+
 w__ "Whitespace Separator"
     = [ \t]* [\r\n]+ _
 l__ "Optional Whitespace"
