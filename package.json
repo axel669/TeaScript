@@ -1,6 +1,6 @@
 {
   "name": "@axel669/teascript",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "For people who don't care for coffee",
   "main": "TeaScript.js",
   "scripts": {
