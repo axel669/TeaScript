@@ -31,7 +31,7 @@ switch (true) {
         break;
     }
     default: {
-        require("./require.js");
+        require("../require.js");
         require(sourceFile);
     }
 }
