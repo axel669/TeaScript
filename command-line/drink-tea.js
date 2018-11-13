@@ -3,30 +3,42 @@
 const path = require("path");
 const fs = require("fs");
 
-const argParser = require("./arg-parser.js");
 const transpile = require("./transpiler.js");
+const argv = require("@axel669/arg-parser")({
+    "_:": [i => i],
+    "print:p|print": undefined,
+    "targetFile:o|output|target-file": [i => i],
+    "eval:e|eval": [i => i]
+});
 
-argParser.arg(i => i);
-argParser.option("p", "print");
-argParser.option("u", "ugly");
-argParser.option("e", "eval", [source => source]);
-
-const {args, options} = argParser.parse();
-
-const sourceFile = path.resolve(
-    process.cwd(),
-    args[0]
-);
+const sourceFile = (argv._.length > 0)
+    ? path.resolve(
+        process.cwd(),
+        argv._[0]
+    )
+    : null;
 
 switch (true) {
-    case (options.print !== undefined): {
+    case (argv.targetFile !== undefined): {
         const sourceCode = fs.readFileSync(sourceFile, {encoding: 'utf8'});
-        const transpiledCode = transpile(sourceCode, options.ugly === undefined);
+        const transpiledCode = transpile(sourceCode, argv.ugly !== true);
+        fs.writeFileSync(
+            path.resolve(
+                process.cwd(),
+                argv.targetFile[0]
+            ),
+            transpiledCode
+        );
+        break;
+    }
+    case (argv.print === true): {
+        const sourceCode = fs.readFileSync(sourceFile, {encoding: 'utf8'});
+        const transpiledCode = transpile(sourceCode, argv.ugly !== true);
         console.log(transpiledCode);
         break;
     }
-    case (options.eval !== undefined): {
-        const transpiledCode = transpile(options.eval[0]);
+    case (argv.eval !== undefined): {
+        const transpiledCode = transpile(argv.eval[0]);
         new Function(transpiledCode)();
         break;
     }
