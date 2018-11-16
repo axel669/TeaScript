@@ -1,0 +1,26 @@
+construct Point {
+    static count = 0
+
+    new(x, y) => {
+        Point.count += 1
+        [#x, #y] = [x, y]
+    }
+
+    get x() => #x
+    get y() => #y
+    get mag() => (#x ** 2 + #y ** 2) ** 0.5
+
+    add(point) => Point(point.x + #x, point.y + #y)
+
+    toString() => "Point(${#x}, ${#y})"
+
+    normalize() => Point(#x / @mag, #y / @mag)
+
+    print() => console.log(@toString())
+}
+
+let a = Point(1, 2)
+let b = Point(3, 4)
+
+a.add(b).print()
+a.add(b).normalize().print()

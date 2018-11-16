@@ -136,7 +136,7 @@
                 return `let ${list.join(", ")}`;
             }
         }),
-        FunctionDecl: (args, body) => ({
+        FunctionDecl: (args, body, bindable = false) => ({
             type: "function-decl",
             args, body,
             toJS(parentScope, forceName = null) {
@@ -150,7 +150,9 @@
                 const code = vars.size !== 0
                     ? `\nvar ${Array.from(vars).join(", ")};\n${bodyLines}`
                     : bodyLines;
-                let funcDef = `${argDef} => `;
+                let funcDef = bindable === false
+                    ? `${argDef} => `
+                    : `function ${argDef} `;
                 if (forceName !== null) {
                     funcDef = `${forceName}${argDef} `;
                 }
@@ -502,6 +504,82 @@
                 // return `constructor(${args.toJS(scope)}) {\n${body.map(i => i.toJS(scope))}\n}`;
             }
         }),
+        Construct: (decorators, name, body) => ({
+            type: "construct",
+            decorators, name, body,
+            toJS(scope) {
+                const parts = body.reduce(
+                    (parts, part) => {
+                        switch (true) {
+                            case (part.name === "new" && part.type === "construct-function"): {
+                                parts._constructor = part;
+                                break;
+                            }
+                            case (part.type === "construct-var"): {
+                                parts.vars.push(part);
+                                break;
+                            }
+                            case (part.accessMod !== ""): {
+                                parts.accessors.push(part);
+                                break;
+                            }
+                            default: {
+                                parts.funcs.push(part);
+                                break;
+                            }
+                        }
+                        return parts;
+                    },
+                    {_constructor: null, vars: [], funcs: [], accessors: []}
+                );
+                const [args, constructBody] = parts._constructor === null
+                    ? [[], []]
+                    : [parts._constructor.args, [...parts._constructor.body]];
+                const argDef = `(${args.map(i => i.toJS(scope)).join(', ')})`;
+                const createLines = constructBody.map(i => i.toJS(scope) + ";");
+                const functionLines = parts.funcs.map(
+                    (func) => `this.${func.name} = ${Token.FunctionDecl(func.args, func.body).toJS(scope)};`
+                );
+                const collection = Token.Object(parts.accessors.map(
+                    acc => Token.Pair("", [], Token.Identifier(acc.name), Token.Object([
+                        Token.Pair("", [], Token.Identifier(acc.accessMod), Token.FunctionDecl([], acc.body))
+                    ]))
+                ));
+                const staticVars = parts.vars.map(
+                    (svar) => `${name}.${svar.name} = ${svar.value.toJS(scope)}`
+                );
+
+                const constructBodyCode = [
+                    "const self = {};",
+                    `Object.defineProperties(this, ${collection.toJS(scope)})`,
+                    ...functionLines,
+                    ...createLines,
+                    `return this;`
+                ].join("\n");
+
+                const constructCode = decorators.reduceRight(
+                    (current, deco) => {
+                        return `${deco.func.toJS(scope)}(${current})`;
+                    },
+                    `function construct${argDef} {${constructBodyCode}}`
+                );
+                return `const ${name} = (() => {\nconst construct = ${constructCode}\nreturn (...args) => construct.apply({}, args);})();\n${staticVars.join(";\n")}`;
+            }
+        }),
+        ConstructFunction: (accessMod, name, decorators, args, body) => ({
+            type: "construct-function",
+            accessMod, name, decorators, args, body,
+            toJS(scope) {
+                return "";
+            }
+        }),
+        ConstructVar: (name, value) => ({
+            type: "construct-var",
+            name, value,
+            toJS(scope) {
+                return "";
+            }
+        }),
         JSXProp: (key, value) => ({
             type: "jsx-prop",
             key, value,
@@ -681,6 +759,20 @@
         return current;
     };
 
+    const checkForCall = (token) => {
+        if (token.type === "function-call") {
+            return true;
+        }
+        if (token.items !== undefined) {
+            for (const item of token.items) {
+                if (checkForCall(item) === true) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+
     const tokenRegex = /^[a-zA-Z_$][a-zA-Z_$0-9]*$/;
 }
 
@@ -823,7 +915,6 @@ Destructure
         if (rest !== null) {
             topLevelScope.vars.add(rest[4]);
             tokens.push(Token.Identifier(`...${rest[4]}`));
-            // tokens.push(`...${rest[4]}`);
         }
         for (const tok of tokens) {
             if (tokenRegex.test(tok.name) === true) {
@@ -831,8 +922,6 @@ Destructure
             }
         }
         return Token.Array(tokens);
-        // return `[${tokens.map(i => i === "*" ? "" : i).join(", ")}]`;
-        // return Token.Identifier(`[${tokens.map(i => i === "*" ? "" : i).join(", ")}]`);
     }
     / "{" first:(DestructureAs / DestructureNested / DestructureDefault / Identifier) tail:(_ "," _ (DestructureAs / DestructureNested / DestructureDefault / Identifier))* rest:(_ "," _ "..." Word)? "}" {
         const tokens = [
@@ -842,7 +931,6 @@ Destructure
         if (rest !== null) {
             topLevelScope.vars.add(rest[4]);
             tokens.push(Token.Identifier(`...${rest[4]}`));
-            // tokens.push(`...${rest[4]}`);
         }
         for (const tok of tokens) {
             if (tokenRegex.test(tok.name) === true) {
@@ -850,7 +938,6 @@ Destructure
             }
         }
         return Token.Object(tokens);
-        // return `{${tokens.map(i => i === "*" ? "" : i).join(", ")}}`;
     }
 DestructureAs
     = name:Word __ "as" __ newName:Word {
@@ -864,9 +951,34 @@ DestructureNested
         // return `${key}: ${value}`;
     }
 DestructureDefault
-    = name:Word __ "=" __ value:(Number / String / IdentifierToken) {
-        return Token.Pair("", [], Token.Identifier(name), value, "=");
+    = name:IdentifierToken __ "=" __ value:(Number / String / IdentifierToken) {
+        return Token.Pair("", [], name, value, "=");
+        // return Token.Pair("", [], Token.Identifier(name), value, "=");
         // return `${key} = ${value.toJS()}
+    }
+
+DestructureLValue
+    = "[" first:(DestructureDefault / IdentifierTokenLValue / "*" / Destructure)
+            tail:(_ "," _ (DestructureDefault / IdentifierTokenLValue / "*" / Destructure))*
+            rest:(_ "," _ "..." IdentifierTokenLValue)? "]" {
+        const tokens = [
+            first,
+            ...tail.map(i => i[3])
+        ]
+        .map(
+            tok => (tok === "*") ? Token.Identifier("") : tok
+        );
+        if (rest !== null) {
+            topLevelScope.vars.add(rest[4]);
+            tokens.push(Token.Identifier(`...${rest[4]}`));
+        }
+        // console.log(tokens);
+        // for (const tok of tokens) {
+        //     if (tokenRegex.test(tok.name) === true) {
+        //         topLevelScope.vars.add(tok.name);
+        //     }
+        // }
+        return Token.Array(tokens);
     }
 
 Expression
@@ -880,6 +992,7 @@ Expression
     / Yield
     / Break
     / Logical
+    / Construct
     / Class
     / NullCoalesce
     / JSX
@@ -935,7 +1048,12 @@ JSXContent
     / content:$("\\{" / [^<\n])+ {return Token.JSXContent(content);}
 
 Assignment
-    = name:(IdentifierToken / Destructure {return Token.Identifier(text());}) __ op:("=" / "+=" / "-=" / "*=" / "/=" / "**=") __ value:(Ternary / Expression) {
+    = name:(IdentifierTokenLValue / DestructureLValue) __ op:("=" / "+=" / "-=" / "*=" / "/=" / "**=") __ value:(Ternary / Expression) {
+        // const nameToken = name.type === "array" ? Token.Identifier(name.to
+        // console.log(name);
+        if (checkForCall(name) === true) {
+            throw new Error("cannot assign to function call");
+        }
         return Token.Assignment(name, value, op);
     }
 
@@ -1000,12 +1118,21 @@ FunctionDecl
     / "(" _ args:ArgList _ ")" __ "=>" __ expr:(Ternary / Expression) {
         return Token.FunctionDecl(
             args,
-            // [Token.Grouped(expr)]
             [Token.Unary("return", expr)]
+        );
+    }
+    / "(" _ args:ArgList _ ")" __ "=>*" __ expr:(Ternary / Expression) {
+        return Token.FunctionDecl(
+            args,
+            [Token.Unary("return", expr)],
+            true
         );
     }
     / "(" _ args:ArgList _ ")" __ "=>" __ "{" body:Program "}" {
         return Token.FunctionDecl(args, body);
+    }
+    / "(" _ args:ArgList _ ")" __ "=>*" __ "{" body:Program "}" {
+        return Token.FunctionDecl(args, body, true);
     }
 ArgList
     = first:Arg? rest:(_ "," _ Arg)* {
@@ -1088,6 +1215,9 @@ AccessBit
     }
     / _ op:$("?"? ".") _ name:String {
         return {name, op: op === "." ? "access" : "null-access"};
+    }
+    / _ "::" value:Word {
+        return {op: ".", name: Token.Identifier(`prototype.${value}`)};
     }
 
 Typeof
@@ -1211,6 +1341,33 @@ ClassFunction
         return Token.ClassFunction(name, decorators.map(d => d[1]), func.args, func.body);
     }
 
+Construct
+    = decorators:(_ Decorator _)* "construct" __ name:Word __ "{" _ body:ConstructBody _ "}" {
+        return Token.Construct(
+            decorators.map(d => d[1]),
+            name,
+            body
+        );
+    }
+ConstructBody
+    = entries:(_ (ConstructVar / ConstructFunction) _)* {
+        return entries.map(e => e[1]);
+    }
+ConstructVar
+    = "static" __ name:Word __ "=" __ value:Expression {
+        return Token.ConstructVar(name, value);
+    }
+ConstructFunction
+    = decorators:(_ Decorator _)* accessMod:(("get" / "set") __)? name:Word func:FunctionDecl {
+        return Token.ConstructFunction(
+            accessMod ? accessMod[0] : "",
+            name,
+            decorators.map(d => d[1]),
+            func.args,
+            func.body
+        );
+    }
+
 Token
     = first:(
         Number
@@ -1247,11 +1404,18 @@ Token
     }
 IdentifierToken
     = first:Identifier tail:(AccessBit / ArrayAccess)* {
-        return tail.reduce(
-            (current, {op, name}) => binaryOp(current, name, op),
-            first
-        )
+        return processTail(first, tail);
     }
+IdentifierTokenLValue
+    = first:Identifier tail:(CallBit / AccessBit / ArrayAccess)* {
+        const last = tail.slice(-1)[0];
+        // console.log(processTail(first, tail));
+        // if (last !== undefined && last.args !== undefined) {
+        //     throw new Error("Cannot assign to a function call");
+        // }
+        return processTail(first, tail);
+    }
+    / Identifier
 
 Number
     = text:$("-"? [0-9]+ "." [0-9]+ ("e" ("+" / "-")? [0-9]+)?) {
@@ -1272,7 +1436,7 @@ Number
 Hex = [0-9a-f]i
 
 String
-    = text:('"' ("\\$" / ("${" Expression "}") / [^"\\] / "\\\"" / "\\u" . . . .)* '"') {
+    = text:('"' ("\\$" / ("${" Expression "}") / [^"\\] / "\\\"" / "\\u" . . . . / "\\\\")* '"') {
         const bits = text[1].reduce(
             ({current, all}, next, index) => {
                 if (Array.isArray(next) === true) {
@@ -1314,6 +1478,15 @@ Identifier
         return current;
     }
     / "@" {return Token.Identifier("this");}
+    / _this:"#"? name:Word {
+        let current = Token.Identifier(name);
+
+        if (_this !== null) {
+            current = binaryOp(Token.Identifier("self"), current, ".");
+        }
+        return current;
+    }
+    / "#" {return Token.Identifier("self");}
 Word = $([a-zA-Z_$] [$a-zA-Z_\-0-9]*)
 DotAccess
     = _ op:$("?"? ".") _ value:(Word / String) {
