@@ -14,7 +14,6 @@
         range: "var range=function(a,b){for(var c=2<arguments.length&&void 0!==arguments[2]?arguments[2]:1,d=[],e=a;0<c&&e<b||0>c&&e>b;)d.push(e),e+=c;return d};"
     };
     const globalFuncCalls = new Set();
-    // let lastRef = null;
 
     const dif = (a, b) => new Set(Array.from(a).filter(i => b.has(i) === false));
 
@@ -58,16 +57,16 @@
     });
     const mtoJS = t => t.toJS();
     const Token = {
-        Number: value => ({
+        -Number: (location, value) => ({
             type: "number",
-            value,
+            location, value,
             toJS(scope) {
                 return value.toString();
             }
         }),
-        String: text => ({
+        -String: (location, text) => ({
             type: "string",
-            text,
+            location, text,
             toJS(scope) {
                 if (text.length === 1 && typeof text[0] === "string" && text[0].indexOf("\n") === -1) {
                     return `"${text[0]}"`;
@@ -78,57 +77,57 @@
                 return `\`${parts.join("").replace(/`/g, "\\`")}\``;
             }
         }),
-        Regex: (regex) => ({
+        -Regex: (regex) => ({
             type: "regex",
             regex,
             toJS(scope) {
                 return regex;
             }
         }),
-        Bool: (value) => ({
+        -Bool: (value) => ({
             type: "bool",
             value,
             toJS(scope) {
                 return value.toString();
             }
         }),
-        Null: () => ({type: "null", toJS(scope) {return "null";}}),
-        Undefined: () => ({type: "undefined", toJS(scope) {return "undefined";}}),
-        Identifier: name => ({
+        -Null: () => ({type: "null", toJS(scope) {return "null";}}),
+        -Undefined: () => ({type: "undefined", toJS(scope) {return "undefined";}}),
+        -Identifier: name => ({
             type: "identifier",
             name,
             toJS(scope) {
                 return name;
             }
         }),
-        Grouped: expr => ({
+        -Grouped: expr => ({
             expr,
             toJS(scope) {
                 return `(${expr.toJS(scope)})`;
             }
         }),
-        MutableIdentifier: name => ({
+        -MutableIdentifier: name => ({
             type: "mutable-identifier",
             name,
             toJS(scope) {
                 return name;
             }
         }),
-        Let: (name, value) => ({
+        -Let: (name, value) => ({
             type: "create-const",
             name, value,
             toJS(scope) {
                 return `const ${name.toJS()} = ${value.toJS(scope)}`;
             }
         }),
-        Mut: (name, value) => ({
+        -Mut: (name, value) => ({
             type: "create-let",
             name, value,
             toJS(scope) {
                 return `let ${name.toJS()} = ${value.toJS(scope)}`;
             }
         }),
-        MutList: (names) => ({
+        -MutList: (names) => ({
             type: "create-let-list",
             names,
             toJS(scope) {
@@ -136,14 +135,12 @@
                 return `let ${list.join(", ")}`;
             }
         }),
-        FunctionDecl: (args, body, bindable = false) => ({
+        -FunctionDecl: (args, body, bindable = false) => ({
             type: "function-decl",
             args, body,
             toJS(parentScope, forceName = null) {
-                // const scope = new Set(parentScope);
                 const scope = Scope(parentScope);
                 const argDef = `(${args.map(i => i.toJS(scope)).join(', ')})`;
-                // const bodyLines = body.map(i => i.toJS(scope)).join(";\n");
                 const bodyLines = formatBody(body, scope);
 
                 const vars = dif(scope.vars, parentScope.vars);
@@ -166,7 +163,7 @@
                 return `${funcDef}{${code}}`;
             }
         }),
-        FunctionCall: (name, nullCheck, args) => ({
+        -FunctionCall: (name, nullCheck, args) => ({
             type: "function-call",
             name, args, nullCheck,
             toJS(scope) {
@@ -194,14 +191,14 @@
                 return `${name.toJS(scope)}(${args.map(i => i.toJS(scope)).join(", ")})`;
             }
         }),
-        NewCall: (name, args) => ({
+        -NewCall: (name, args) => ({
             type: "new-call",
             name, args,
             toJS(scope) {
                 return `new ${name.toJS(scope)}(${args.map(i => i.toJS(scope)).join(", ")})`;
             }
         }),
-        Unary: (type, expr, standAlone = true) => ({
+        -Unary: (type, expr, standAlone = true) => ({
             type, expr,
             toJS(scope) {
                 if (type === "await") {
@@ -214,14 +211,14 @@
                 return `${type} ${exprStr}`.trim();
             }
         }),
-        Array: items => ({
+        -Array: items => ({
             type: "array",
             items,
             toJS(scope) {
                 return `[${items.map(i => i.toJS(scope)).join(", ")}]`;
             }
         }),
-        Object: pairs => ({
+        -Object: pairs => ({
             type: "object",
             pairs,
             toJS(scope) {
@@ -229,7 +226,7 @@
                 return `{\n${p.join(",\n")}\n}`;
             }
         }),
-        Pair: (accessMod, decorators, key, value, sep = ":") => ({
+        -Pair: (accessMod, decorators, key, value, sep = ":") => ({
             type: "pair",
             accessMod, decorators, key, value,
             toJS(scope) {
@@ -245,17 +242,16 @@
                     (current, deco) => deco.toJS(scope, current),
                     value.toJS(scope)
                 );
-                // return `${decoString}${key.toJS(scope)}${sep} ${value.toJS(scope)}`;
                 return `${decoString}${key.toJS(scope)}${sep} ${valueStr}`;
             }
         }),
-        Null: () => ({
+        -Null: () => ({
             type: "null",
             toJS(scope) {
                 return "null";
             }
         }),
-        If: (condition, body, alternate, sub = false) => ({
+        -If: (condition, body, alternate, sub = false) => ({
             type: "if",
             condition, body, alternate,
             toJS(scope) {
@@ -279,7 +275,7 @@
                 return ifexpr;
             }
         }),
-        Break: (value = null, label = null) => ({
+        -Break: (value = null, label = null) => ({
             type: "break",
             value, label,
             toJS(scope) {
@@ -292,7 +288,7 @@
                 return "break;";
             }
         }),
-        Switch: (expr, cases, def) => ({
+        -Switch: (expr, cases, def) => ({
             type: "switch",
             expr, cases, def,
             toJS(scope) {
@@ -311,7 +307,7 @@
                 return switchexpr;
             }
         }),
-        ValueCase: (value, body) => ({
+        -ValueCase: (value, body) => ({
             type: "value-case",
             value, body,
             toJS(scope) {
@@ -323,7 +319,7 @@
                 return `case ${value.toJS(scope)}: {\n${bodyLines};\n}`;
             }
         }),
-        CompareCase: (expr, body) => ({
+        -CompareCase: (expr, body) => ({
             type: "compare-case",
             expr, body,
             toJS(scope) {
@@ -335,7 +331,7 @@
                 return `case (${expr.toJS(scope)}): {\n${bodyLines};\n}`;
             }
         }),
-        DefaultCase: (body) => ({
+        -DefaultCase: (body) => ({
             type: "default-case",
             body,
             toJS(scope) {
@@ -343,7 +339,7 @@
                 return `default: {\n${bodyLines};\n}`;
             }
         }),
-        ForObject: (key, value, expr, body) => ({
+        -ForObject: (key, value, expr, body) => ({
             type: "for-object",
             key, value, expr, body,
             toJS(scope) {
@@ -366,7 +362,7 @@
                 return `${loop} {\n${bodyLines};\n}`;
             }
         }),
-        ForIn: (item, expr, body) => ({
+        -ForIn: (item, expr, body) => ({
             type: "for-range",
             item, expr, body,
             toJS(scope) {
@@ -442,14 +438,14 @@
                 return `(${name.toJS(scope)} ${op} ${value.toJS(scope)})`;
             }
         }),
-        Decorator: (func) => ({
+        -Decorator: (func) => ({
             type: "decorator",
             func,
             toJS(scope) {
                 return `@${func.toJS(scope)}`;
             }
         }),
-        SimpleDecorator: (func) => ({
+        -SimpleDecorator: (func) => ({
             type: "simple-decorator",
             func,
             toJS(scope, content) {
@@ -480,7 +476,6 @@
             type: "class-func",
             body,
             toJS(parentScope) {
-                // const scope = new Set(parentScope);
                 const scope = Scope(parentScope);
                 const argDef = `(${args.map(i => i.toJS(scope)).join(', ')}) `;
                 const bodyLines = body.map(i => i.toJS(scope) + ";").join("\n");
@@ -501,7 +496,6 @@
                 }
 
                 return `${decoString}${funcName}${argDef}{\n${code}\n}`;
-                // return `constructor(${args.toJS(scope)}) {\n${body.map(i => i.toJS(scope))}\n}`;
             }
         }),
         Construct: (decorators, name, body) => ({
@@ -748,7 +742,6 @@
                     if (item.name !== undefined) {
                         current = binaryOp(current, Token.Identifier(item.name), `${item.nullish || ""}.`);
                     }
-                    // console.log(current);
                     current = Token.FunctionCall(current, item.nullCheck, item.args);
                 }
             }
@@ -943,18 +936,14 @@ DestructureAs
     = name:Word __ "as" __ newName:Word {
         topLevelScope.vars.add(newName);
         return Token.Pair("", [], Token.Identifier(name), Token.Identifier(newName));
-        // return `${name}: ${newName}`;
     }
 DestructureNested
     = key:Word ":" __ value:Destructure {
         return Token.Pair("", [], Token.Identifier(key), value);
-        // return `${key}: ${value}`;
     }
 DestructureDefault
     = name:IdentifierToken __ "=" __ value:(Number / String / IdentifierToken) {
         return Token.Pair("", [], name, value, "=");
-        // return Token.Pair("", [], Token.Identifier(name), value, "=");
-        // return `${key} = ${value.toJS()}
     }
 
 DestructureLValue
@@ -972,12 +961,6 @@ DestructureLValue
             topLevelScope.vars.add(rest[4]);
             tokens.push(Token.Identifier(`...${rest[4]}`));
         }
-        // console.log(tokens);
-        // for (const tok of tokens) {
-        //     if (tokenRegex.test(tok.name) === true) {
-        //         topLevelScope.vars.add(tok.name);
-        //     }
-        // }
         return Token.Array(tokens);
     }
 
@@ -1049,8 +1032,6 @@ JSXContent
 
 Assignment
     = name:(IdentifierTokenLValue / DestructureLValue) __ op:("=" / "+=" / "-=" / "*=" / "/=" / "**=") __ value:(Ternary / Expression) {
-        // const nameToken = name.type === "array" ? Token.Identifier(name.to
-        // console.log(name);
         if (checkForCall(name) === true) {
             throw new Error("cannot assign to function call");
         }
@@ -1067,8 +1048,13 @@ Logical
     / Compare
 
 Compare
-    = left:(NullCoalesce) __ op:("==" / "!=" / "<" / ">" / "<=" / ">=" / "instanceof") __ right:(NullCoalesce) {
-        return binaryOp(left, right, op);
+    = left:(NullCoalesce) tail:(__ ("==" / "!=" / "<" / ">" / "<=" / ">=" / "instanceof") __ NullCoalesce)+ {
+        // console.log(tail);
+        if (tail.length === 1) {
+            const [, op, , right] = tail;
+            return binaryOp(left, right, op);
+        }
+        return null;
     }
     / "(" _ logical:Logical _ ")" {
         return Token.Grouped(logical);
@@ -1140,14 +1126,10 @@ ArgList
     }
 Arg
     = name:(Identifier / Destructure) __ "=" __ expr:Expression {
-        // return binaryOp(typeof name === "string" ? Token.Identifier(name) : name, expr, "=");
         return binaryOp(name, expr, "=");
     }
-    /* / "mut" __ id:(Identifier / Destructure) {return Token.MutableIdentifier(id.name);} */
     / "mut" __ id:Identifier {return Token.MutableIdentifier(id.name);}
-    /* / "mut" __ id:Destructure {return id;} */
     / Identifier
-    /* / structure:Destructure {return Token.Identifier(structure);} */
     / Destructure
     / "..." id:Word {
         const name = Token.Identifier(id);
@@ -1160,30 +1142,6 @@ Arg
         };
     }
 
-//  Modified token but i dont want to delete this yet
-/* FunctionCall
-    = name:(Grouped / Identifier) end:CallBit tail:(CallBit / AccessBit)* {
-    = name:(Grouped / Identifier) end:CallBit {
-        let current = end.newCall === true
-            ? Token.NewCall(name, end.args)
-            : Token.FunctionCall(name, end.nullCheck, end.args);
-
-        // for (const item of tail) {
-        //     if (item.args !== undefined) {
-        //         if (item.newCall === true) {
-        //             current = Token.NewCall(current, item.args);
-        //         }
-        //         else {
-        //             current = Token.FunctionCall(current, item.nullCheck, item.args);
-        //         }
-        //     }
-        //     else {
-        //         current = binaryOp(current, item.name, item.op);
-        //     }
-        // }
-
-        return current;
-    } */
 CallArgList
     = first:CallArg? rest:(_Separator CallArg)* {
         return listProcess(first, rest, 1);
@@ -1203,9 +1161,6 @@ CallBit
     = nullCheck:"?"? "(" _ args:CallArgList _ ")" {
         return {nullCheck: nullCheck || "", args};
     }
-    /* / _ op:("?"? ".") _ name:String _ nullCheck:"?"? "(" _ args:CallArgList _ ")" {
-        return {
-    } */
     / "*" "(" _ args:CallArgList _ ")" {
         return {newCall: true, args};
     }
@@ -1386,21 +1341,6 @@ Token
         / Regex
     ) tail:(CallBit / AccessBit / ArrayAccess)* {
         return processTail(first, tail);
-        // let current = first;
-        // for (const item of tail) {
-        //     if (item.args !== undefined) {
-        //         if (item.newCall === true) {
-        //             current = Token.NewCall(current, item.args);
-        //         }
-        //         else {
-        //             current = Token.FunctionCall(current, item.nullCheck, item.args);
-        //         }
-        //     }
-        //     else {
-        //         current = binaryOp(current, item.name, item.op);
-        //     }
-        // }
-        // return current;
     }
 IdentifierToken
     = first:Identifier tail:(AccessBit / ArrayAccess)* {
@@ -1409,29 +1349,25 @@ IdentifierToken
 IdentifierTokenLValue
     = first:Identifier tail:(CallBit / AccessBit / ArrayAccess)* {
         const last = tail.slice(-1)[0];
-        // console.log(processTail(first, tail));
-        // if (last !== undefined && last.args !== undefined) {
-        //     throw new Error("Cannot assign to a function call");
-        // }
         return processTail(first, tail);
     }
     / Identifier
 
 Number
     = text:$("-"? [0-9]+ "." [0-9]+ ("e" ("+" / "-")? [0-9]+)?) {
-        return Token.Number(parseFloat(text));
+        return Token.Number(location(), parseFloat(text));
     }
     / text:$("-"? [0-9]+) {
-        return Token.Number(parseInt(text, 10));
+        return Token.Number(location(), parseInt(text, 10));
     }
     / text:$("0x" Hex+) {
-        return Token.Number(parseInt(text, 16));
+        return Token.Number(location(), parseInt(text, 16));
     }
     / text:$("0b" [01]+) {
-        return Token.Number(parseInt(text, 2));
+        return Token.Number(location(), parseInt(text, 2));
     }
     / text:$("0o" [0-7]+) {
-        return Token.Number(parseInt(text, 8));
+        return Token.Number(location(), parseInt(text, 8));
     }
 Hex = [0-9a-f]i
 
@@ -1456,7 +1392,7 @@ String
             },
             {current: [], all: []}
         ).all;
-        return Token.String(bits);
+        return Token.String(location(), bits);
     }
 
 Regex
@@ -1533,7 +1469,7 @@ ArrayEntry = Ternary / Expression / Expansion
 Range
     = start:NullCoalesce "..." end:NullCoalesce inc:(__ "by" __ NullCoalesce)? {
         globalFuncCalls.add("range");
-        return Token.Range(start, end, inc ? inc[3] : Token.Number(1));
+        return Token.Range(start, end, inc ? inc[3] : Token.Number(null, 1));
     }
 SliceRange
     = start:NullCoalesce "..." end:NullCoalesce {
@@ -1543,7 +1479,7 @@ SliceRange
         return {start, end: Token.Undefined()};
     }
     / "..." end:NullCoalesce {
-        return {start: Token.Number(0), end};
+        return {start: Token.Number(null, 0), end};
     }
 
 ObjectLiteral
@@ -1581,9 +1517,6 @@ SimpleDecorator
     = "@@" call:Token {
         return Token.SimpleDecorator(call);
     }
-    /* / "@" name:Identifier {
-        return Token.Decorator(name);
-    } */
 
 Comment
     = "//" text:$([^\n]*) {

@@ -1,0 +1,747 @@
+{
+    "bin": null,
+    "imports": [],
+    "code": [
+        {
+            "type": "identifier",
+            "name": "import"
+        },
+        {
+            "type": "identifier",
+            "name": "Math"
+        },
+        {
+            "type": "construct",
+            "decorators": [],
+            "name": "Point",
+            "body": [
+                {
+                    "type": "construct-var",
+                    "name": "count",
+                    "value": {
+                        "type": "number",
+                        "location": {
+                            "start": {
+                                "offset": 53,
+                                "line": 4,
+                                "column": 20
+                            },
+                            "end": {
+                                "offset": 54,
+                                "line": 4,
+                                "column": 21
+                            }
+                        },
+                        "value": 0
+                    }
+                },
+                {
+                    "type": "construct-function",
+                    "accessMod": "",
+                    "name": "new",
+                    "decorators": [],
+                    "args": [
+                        {
+                            "type": "identifier",
+                            "name": "x"
+                        },
+                        {
+                            "type": "identifier",
+                            "name": "y"
+                        }
+                    ],
+                    "body": [
+                        {
+                            "type": "assignment",
+                            "name": {
+                                "type": "bin-op",
+                                "left": {
+                                    "type": "identifier",
+                                    "name": "Point"
+                                },
+                                "right": {
+                                    "type": "identifier",
+                                    "name": "count"
+                                },
+                                "op": "."
+                            },
+                            "value": {
+                                "type": "number",
+                                "location": {
+                                    "start": {
+                                        "offset": 101,
+                                        "line": 7,
+                                        "column": 24
+                                    },
+                                    "end": {
+                                        "offset": 102,
+                                        "line": 7,
+                                        "column": 25
+                                    }
+                                },
+                                "value": 1
+                            },
+                            "op": "+="
+                        },
+                        {
+                            "type": "assignment",
+                            "name": {
+                                "type": "array",
+                                "items": [
+                                    {
+                                        "type": "bin-op",
+                                        "left": {
+                                            "type": "identifier",
+                                            "name": "self"
+                                        },
+                                        "right": {
+                                            "type": "identifier",
+                                            "name": "x"
+                                        },
+                                        "op": "."
+                                    },
+                                    {
+                                        "type": "bin-op",
+                                        "left": {
+                                            "type": "identifier",
+                                            "name": "self"
+                                        },
+                                        "right": {
+                                            "type": "identifier",
+                                            "name": "y"
+                                        },
+                                        "op": "."
+                                    }
+                                ]
+                            },
+                            "value": {
+                                "type": "array",
+                                "items": [
+                                    {
+                                        "type": "identifier",
+                                        "name": "x"
+                                    },
+                                    {
+                                        "type": "identifier",
+                                        "name": "y"
+                                    }
+                                ]
+                            },
+                            "op": "="
+                        }
+                    ]
+                },
+                {
+                    "type": "construct-function",
+                    "accessMod": "get",
+                    "name": "x",
+                    "decorators": [],
+                    "args": [],
+                    "body": [
+                        {
+                            "type": "return",
+                            "expr": {
+                                "type": "bin-op",
+                                "left": {
+                                    "type": "identifier",
+                                    "name": "self"
+                                },
+                                "right": {
+                                    "type": "identifier",
+                                    "name": "x"
+                                },
+                                "op": "."
+                            },
+                            "standAlone": true
+                        }
+                    ]
+                },
+                {
+                    "type": "construct-function",
+                    "accessMod": "get",
+                    "name": "y",
+                    "decorators": [],
+                    "args": [],
+                    "body": [
+                        {
+                            "type": "return",
+                            "expr": {
+                                "type": "bin-op",
+                                "left": {
+                                    "type": "identifier",
+                                    "name": "self"
+                                },
+                                "right": {
+                                    "type": "identifier",
+                                    "name": "y"
+                                },
+                                "op": "."
+                            },
+                            "standAlone": true
+                        }
+                    ]
+                },
+                {
+                    "type": "construct-function",
+                    "accessMod": "get",
+                    "name": "mag",
+                    "decorators": [],
+                    "args": [],
+                    "body": [
+                        {
+                            "type": "return",
+                            "expr": {
+                                "type": "bin-op",
+                                "left": {
+                                    "type": "group",
+                                    "expr": {
+                                        "type": "bin-op",
+                                        "left": {
+                                            "type": "bin-op",
+                                            "left": {
+                                                "type": "bin-op",
+                                                "left": {
+                                                    "type": "identifier",
+                                                    "name": "self"
+                                                },
+                                                "right": {
+                                                    "type": "identifier",
+                                                    "name": "x"
+                                                },
+                                                "op": "."
+                                            },
+                                            "right": {
+                                                "type": "number",
+                                                "location": {
+                                                    "start": {
+                                                        "offset": 202,
+                                                        "line": 13,
+                                                        "column": 25
+                                                    },
+                                                    "end": {
+                                                        "offset": 203,
+                                                        "line": 13,
+                                                        "column": 26
+                                                    }
+                                                },
+                                                "value": 2
+                                            },
+                                            "op": "**"
+                                        },
+                                        "right": {
+                                            "type": "bin-op",
+                                            "left": {
+                                                "type": "bin-op",
+                                                "left": {
+                                                    "type": "identifier",
+                                                    "name": "self"
+                                                },
+                                                "right": {
+                                                    "type": "identifier",
+                                                    "name": "y"
+                                                },
+                                                "op": "."
+                                            },
+                                            "right": {
+                                                "type": "number",
+                                                "location": {
+                                                    "start": {
+                                                        "offset": 212,
+                                                        "line": 13,
+                                                        "column": 35
+                                                    },
+                                                    "end": {
+                                                        "offset": 213,
+                                                        "line": 13,
+                                                        "column": 36
+                                                    }
+                                                },
+                                                "value": 2
+                                            },
+                                            "op": "**"
+                                        },
+                                        "op": "+"
+                                    }
+                                },
+                                "right": {
+                                    "type": "number",
+                                    "location": {
+                                        "start": {
+                                            "offset": 218,
+                                            "line": 13,
+                                            "column": 41
+                                        },
+                                        "end": {
+                                            "offset": 221,
+                                            "line": 13,
+                                            "column": 44
+                                        }
+                                    },
+                                    "value": 0.5
+                                },
+                                "op": "**"
+                            },
+                            "standAlone": true
+                        }
+                    ]
+                },
+                {
+                    "type": "construct-function",
+                    "accessMod": "",
+                    "name": "add",
+                    "decorators": [],
+                    "args": [
+                        {
+                            "type": "identifier",
+                            "name": "point"
+                        }
+                    ],
+                    "body": [
+                        {
+                            "type": "return",
+                            "expr": {
+                                "type": "function-call",
+                                "name": {
+                                    "type": "identifier",
+                                    "name": "Point"
+                                },
+                                "nullCheck": "",
+                                "args": [
+                                    {
+                                        "type": "bin-op",
+                                        "left": {
+                                            "type": "bin-op",
+                                            "left": {
+                                                "type": "identifier",
+                                                "name": "point"
+                                            },
+                                            "right": {
+                                                "type": "identifier",
+                                                "name": "x"
+                                            },
+                                            "op": "."
+                                        },
+                                        "right": {
+                                            "type": "bin-op",
+                                            "left": {
+                                                "type": "identifier",
+                                                "name": "self"
+                                            },
+                                            "right": {
+                                                "type": "identifier",
+                                                "name": "x"
+                                            },
+                                            "op": "."
+                                        },
+                                        "op": "+"
+                                    },
+                                    {
+                                        "type": "bin-op",
+                                        "left": {
+                                            "type": "bin-op",
+                                            "left": {
+                                                "type": "identifier",
+                                                "name": "point"
+                                            },
+                                            "right": {
+                                                "type": "identifier",
+                                                "name": "y"
+                                            },
+                                            "op": "."
+                                        },
+                                        "right": {
+                                            "type": "bin-op",
+                                            "left": {
+                                                "type": "identifier",
+                                                "name": "self"
+                                            },
+                                            "right": {
+                                                "type": "identifier",
+                                                "name": "y"
+                                            },
+                                            "op": "."
+                                        },
+                                        "op": "+"
+                                    }
+                                ]
+                            },
+                            "standAlone": true
+                        }
+                    ]
+                },
+                {
+                    "type": "construct-function",
+                    "accessMod": "",
+                    "name": "toString",
+                    "decorators": [],
+                    "args": [],
+                    "body": [
+                        {
+                            "type": "return",
+                            "expr": {
+                                "type": "string",
+                                "location": {
+                                    "start": {
+                                        "offset": 298,
+                                        "line": 17,
+                                        "column": 19
+                                    },
+                                    "end": {
+                                        "offset": 319,
+                                        "line": 17,
+                                        "column": 40
+                                    }
+                                },
+                                "test": [
+                                    "Point(",
+                                    {
+                                        "type": "bin-op",
+                                        "left": {
+                                            "type": "identifier",
+                                            "name": "self"
+                                        },
+                                        "right": {
+                                            "type": "identifier",
+                                            "name": "x"
+                                        },
+                                        "op": "."
+                                    },
+                                    ", ",
+                                    {
+                                        "type": "bin-op",
+                                        "left": {
+                                            "type": "identifier",
+                                            "name": "self"
+                                        },
+                                        "right": {
+                                            "type": "identifier",
+                                            "name": "y"
+                                        },
+                                        "op": "."
+                                    },
+                                    ")"
+                                ]
+                            },
+                            "standAlone": true
+                        }
+                    ]
+                },
+                {
+                    "type": "construct-function",
+                    "accessMod": "",
+                    "name": "normalize",
+                    "decorators": [],
+                    "args": [],
+                    "body": [
+                        {
+                            "type": "return",
+                            "expr": {
+                                "type": "function-call",
+                                "name": {
+                                    "type": "identifier",
+                                    "name": "Point"
+                                },
+                                "nullCheck": "",
+                                "args": [
+                                    {
+                                        "type": "bin-op",
+                                        "left": {
+                                            "type": "bin-op",
+                                            "left": {
+                                                "type": "identifier",
+                                                "name": "self"
+                                            },
+                                            "right": {
+                                                "type": "identifier",
+                                                "name": "x"
+                                            },
+                                            "op": "."
+                                        },
+                                        "right": {
+                                            "type": "bin-op",
+                                            "left": {
+                                                "type": "identifier",
+                                                "name": "this"
+                                            },
+                                            "right": {
+                                                "type": "identifier",
+                                                "name": "mag"
+                                            },
+                                            "op": "."
+                                        },
+                                        "op": "/"
+                                    },
+                                    {
+                                        "type": "bin-op",
+                                        "left": {
+                                            "type": "bin-op",
+                                            "left": {
+                                                "type": "identifier",
+                                                "name": "self"
+                                            },
+                                            "right": {
+                                                "type": "identifier",
+                                                "name": "y"
+                                            },
+                                            "op": "."
+                                        },
+                                        "right": {
+                                            "type": "bin-op",
+                                            "left": {
+                                                "type": "identifier",
+                                                "name": "this"
+                                            },
+                                            "right": {
+                                                "type": "identifier",
+                                                "name": "mag"
+                                            },
+                                            "op": "."
+                                        },
+                                        "op": "/"
+                                    }
+                                ]
+                            },
+                            "standAlone": true
+                        }
+                    ]
+                },
+                {
+                    "type": "construct-function",
+                    "accessMod": "",
+                    "name": "print",
+                    "decorators": [],
+                    "args": [],
+                    "body": [
+                        {
+                            "type": "return",
+                            "expr": {
+                                "type": "function-call",
+                                "name": {
+                                    "type": "bin-op",
+                                    "left": {
+                                        "type": "identifier",
+                                        "name": "console"
+                                    },
+                                    "right": {
+                                        "type": "identifier",
+                                        "name": "log"
+                                    },
+                                    "op": "."
+                                },
+                                "nullCheck": "",
+                                "args": [
+                                    {
+                                        "type": "function-call",
+                                        "name": {
+                                            "type": "bin-op",
+                                            "left": {
+                                                "type": "identifier",
+                                                "name": "this"
+                                            },
+                                            "right": {
+                                                "type": "identifier",
+                                                "name": "toString"
+                                            },
+                                            "op": "."
+                                        },
+                                        "nullCheck": "",
+                                        "args": []
+                                    }
+                                ]
+                            },
+                            "standAlone": true
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "create-const",
+            "name": {
+                "type": "identifier",
+                "name": "a"
+            },
+            "value": {
+                "type": "function-call",
+                "name": {
+                    "type": "identifier",
+                    "name": "Point"
+                },
+                "nullCheck": "",
+                "args": [
+                    {
+                        "type": "number",
+                        "location": {
+                            "start": {
+                                "offset": 433,
+                                "line": 24,
+                                "column": 15
+                            },
+                            "end": {
+                                "offset": 434,
+                                "line": 24,
+                                "column": 16
+                            }
+                        },
+                        "value": 1
+                    },
+                    {
+                        "type": "number",
+                        "location": {
+                            "start": {
+                                "offset": 436,
+                                "line": 24,
+                                "column": 18
+                            },
+                            "end": {
+                                "offset": 437,
+                                "line": 24,
+                                "column": 19
+                            }
+                        },
+                        "value": 2
+                    }
+                ]
+            }
+        },
+        {
+            "type": "create-const",
+            "name": {
+                "type": "identifier",
+                "name": "b"
+            },
+            "value": {
+                "type": "function-call",
+                "name": {
+                    "type": "identifier",
+                    "name": "Point"
+                },
+                "nullCheck": "",
+                "args": [
+                    {
+                        "type": "number",
+                        "location": {
+                            "start": {
+                                "offset": 454,
+                                "line": 25,
+                                "column": 15
+                            },
+                            "end": {
+                                "offset": 455,
+                                "line": 25,
+                                "column": 16
+                            }
+                        },
+                        "value": 3
+                    },
+                    {
+                        "type": "number",
+                        "location": {
+                            "start": {
+                                "offset": 457,
+                                "line": 25,
+                                "column": 18
+                            },
+                            "end": {
+                                "offset": 458,
+                                "line": 25,
+                                "column": 19
+                            }
+                        },
+                        "value": 4
+                    }
+                ]
+            }
+        },
+        {
+            "type": "function-call",
+            "name": {
+                "type": "bin-op",
+                "left": {
+                    "type": "function-call",
+                    "name": {
+                        "type": "bin-op",
+                        "left": {
+                            "type": "identifier",
+                            "name": "a"
+                        },
+                        "right": {
+                            "type": "identifier",
+                            "name": "add"
+                        },
+                        "op": "."
+                    },
+                    "nullCheck": "",
+                    "args": [
+                        {
+                            "type": "identifier",
+                            "name": "b"
+                        }
+                    ]
+                },
+                "right": {
+                    "type": "identifier",
+                    "name": "print"
+                },
+                "op": "."
+            },
+            "nullCheck": "",
+            "args": []
+        },
+        {
+            "type": "function-call",
+            "name": {
+                "type": "bin-op",
+                "left": {
+                    "type": "function-call",
+                    "name": {
+                        "type": "bin-op",
+                        "left": {
+                            "type": "function-call",
+                            "name": {
+                                "type": "bin-op",
+                                "left": {
+                                    "type": "identifier",
+                                    "name": "a"
+                                },
+                                "right": {
+                                    "type": "identifier",
+                                    "name": "add"
+                                },
+                                "op": "."
+                            },
+                            "nullCheck": "",
+                            "args": [
+                                {
+                                    "type": "identifier",
+                                    "name": "b"
+                                }
+                            ]
+                        },
+                        "right": {
+                            "type": "identifier",
+                            "name": "normalize"
+                        },
+                        "op": "."
+                    },
+                    "nullCheck": "",
+                    "args": []
+                },
+                "right": {
+                    "type": "identifier",
+                    "name": "print"
+                },
+                "op": "."
+            },
+            "nullCheck": "",
+            "args": []
+        }
+    ],
+    "scope": {
+        "vars": {},
+        "flags": {
+            "async": false,
+            "generator": false
+        }
+    }
+}
