@@ -470,37 +470,30 @@ const codeGen = {
 };
 
 const compileTree = (sourceTree) => {
-    try {
-        const {bin, imports, code, scope, globalCalls} = sourceTree;
+    const {bin, imports, code, scope, globalCalls} = sourceTree;
 
-        const compileScope = scope.copy();
-        const binCode = bin === null ? "" : genJS(bin, compileScope) + "\n";
-        const importsCode = imports.map(i => genJS(i, compileScope));
-        const transpiledCode = [
-            ...Array.from(globalFuncCalls).map(name => globalFuncs[name]),
-            ...code.map(c => genJS(c, compileScope))
-        ];
+    const compileScope = scope.copy();
+    const binCode = bin === null ? "" : genJS(bin, compileScope) + "\n";
+    const importsCode = imports.map(i => genJS(i, compileScope));
+    const transpiledCode = [
+        ...Array.from(globalFuncCalls).map(name => globalFuncs[name]),
+        ...code.map(c => genJS(c, compileScope))
+    ];
 
-        const topLevelVars = dif(compileScope.vars, scope.vars);
-        const tlvCode = topLevelVars.size > 0
-            ? `var ${Array.from(topLevelVars).join(", ")}`
-            : "";
+    const topLevelVars = dif(compileScope.vars, scope.vars);
+    const tlvCode = topLevelVars.size > 0
+        ? `var ${Array.from(topLevelVars).join(", ")}`
+        : "";
 
-        const allCode = [
-            binCode,
-            ...importsCode,
-            tlvCode,
-            ...transpiledCode
-        ].filter(l => l !== "")
-        .concat([""])
-        .join(";\n");
-        return allCode;
-    }
-    catch (e) {
-        console.error(e);
-        return null;
-        // print(sourceTree);
-    }
+    const allCode = [
+        binCode,
+        ...importsCode,
+        tlvCode,
+        ...transpiledCode
+    ].filter(l => l !== "")
+    .concat([""])
+    .join(";\n");
+    return allCode;
 };
 
 module.exports = compileTree;

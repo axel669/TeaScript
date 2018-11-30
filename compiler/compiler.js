@@ -12,7 +12,7 @@ const prettyOptions = {
     parser: "babylon"
 };
 
-const test = fs.readFileSync("../point.tea", {encoding: "utf8"});
+// const test = fs.readFileSync("../point.tea", {encoding: "utf8"});
 // const test = `
 // try {
 //     thing()
@@ -33,12 +33,19 @@ const test = fs.readFileSync("../point.tea", {encoding: "utf8"});
 // }
 // `;
 
-const result = parser.parse(test);
-const code = compile(result);
+// const result = parser.parse(test);
+// const code = compile(result);
+//
+// if (code !== null) {
+//     const pretty = prettier.format(code, prettyOptions);
+//     console.log(code);
+//     console.log('----------------------------------------------');
+//     console.log(pretty);
+// }
 
-if (code !== null) {
-    const pretty = prettier.format(code, prettyOptions);
-    console.log(code);
-    console.log('----------------------------------------------');
-    console.log(pretty);
-}
+module.exports = (tea) => prettier.format(
+    compile(
+        parser.parse(tea)
+    ),
+    prettyOptions
+);
