@@ -106,34 +106,42 @@ const codeGen = {
         const exprStr = expr ? genJS(expr, scope) : "";
         return `${op} ${exprStr}`.trim();
     },
-    "object": ({pairs}, scope) => `{${pairs.map(p => genJS(p, scope)).join(",\n")}}`,
+    "object": ({pairs}, scope) => `{${pairs.length === 0 ? "" : "\n"}${pairs.map(p => genJS(p, scope)).join(",\n")}}`,
     "function-call": ({name, nullCheck, args}, scope) => {
         if (nullCheck === "?") {
             if (name.type === "bin-op" && name.op === "?.") {
-                const nullRef = Token.Identifier(genVarName(scope, "callref")).toJS();
-                const nullRef2 = Token.Identifier(genVarName(scope, "callref")).toJS();
+                const nullRef = genVarName(scope, "callref");
+                const nullRef2 = genVarName(scope, "callref");
+
                 const code = [
                     `${nullRef} = ${name.genJS(left, scope)}`,
-                    `${nullRef2} = ${binaryOp(Token.Identifier(nullRef), name.right, name.op).toJS(scope)}`,
+                    `${nullRef2} = ${binaryOp({type: "identifier", name: nullRef}, name.right, name.op).toJS(scope)}`,
                     `${nullRef2} != null ? ${nullRef2}.bind(${nullRef})(${args.map(i => genJS(i, scope)).join(", ")}) : undefined`
                 ].join(", ");
                 return `(${code})`;
             }
-            const ref = Token.Identifier(genVarName(scope, "nullref"));
-            return `((${genJS(ref, )} = ${genJS(name, scope)}) != null ? ${genJS(ref, )}(${args.map(i => genJS(i, scope)).join(", ")}) : undefined)`;
+            const ref = genVarName(scope, "nullref");
+            return `((${ref} = ${genJS(name, scope)}) != null ? ${ref}(${args.map(i => genJS(i, scope)).join(", ")}) : undefined)`;
         }
         if (name.type === "bin-op" && name.op === "?.") {
-            return binaryOp(
-                name.left,
-                Token.FunctionCall(name.right, nullCheck, args),
-                "?."
-            ).toJS(scope);
+            const newTok = {
+                type: "bin-op",
+                left: name.left,
+                right: {
+                    type: "function-call",
+                    name: name.right,
+                    nullCheck,
+                    args
+                },
+                op: "?."
+            };
+            return genJS(newTok, scope);
         }
         return `${genJS(name, scope)}(${args.map(i => genJS(i, scope)).join(", ")})`;
     },
     "new-call": ({name, args}, scope) => `new ${genJS(name, scope)}(${args.map(i => genJS(i, scope)).join(", ")})`,
     "array": ({items}, scope) => `[${items.map(i => genJS(i, scope)).join(", ")}]`,
-    "pair": ({accessMod, decorators, key, value, sep}, scope) => {
+    "pair": ({accessMod, decorators, key, value, sep = ":"}, scope) => {
         const simpled = decorators.filter(dec => dec.type === "simple-decorator");
         const normald = decorators.filter(dec => dec.type !== "simple-decorator");
         const decoString = normald.length === 0
@@ -176,23 +184,23 @@ const codeGen = {
             case op === "access":
                 return `${genJS(left, scope)}[${genJS(right, scope)}]`;
             case op === "null-access": {
-                const ref = Token.Identifier(genVarName(scope, "nullref"));
-                return `(((${genJS(ref, )} = ${genJS(left, scope)}) != null) ? ${genJS(ref, )}[${genJS(right, scope)}] : undefined)`;
+                const ref = genVarName(scope, "nullref");
+                return `(((${ref} = ${genJS(left, scope)}) != null) ? ${ref}[${genJS(right, scope)}] : undefined)`;
             }
 
             case op === ".":
                 return `${genJS(left, scope)}${op}${genJS(right, scope)}`;
             case op === "?.": {
-                const ref = Token.Identifier(genVarName(scope, "nullref"));
-                return `(((${genJS(ref, )} = ${genJS(left, scope)}) != null) ? ${genJS(ref, )}.${genJS(right, scope)} : undefined)`;
+                const ref = genVarName(scope, "nullref");
+                return `(((${ref} = ${genJS(left, scope)}) != null) ? ${ref}.${genJS(right, scope)} : undefined)`;
             }
 
             case op === "!=" || op === "==":
                 return `${genJS(left, scope)} ${op}= ${genJS(right, scope)}`;
 
             case op === "??": {
-                const ref = Token.Identifier(genVarName(scope, "nullref"));
-                return `((${genJS(ref, )} = ${genJS(left, scope)}) != null ? ${genJS(ref, )} : ${genJS(right, scope)})`;
+                const ref = genVarName(scope, "nullref");
+                return `((${ref} = ${genJS(left, scope)}) != null ? ${ref} : ${genJS(right, scope)})`;
             }
 
             default:
@@ -271,10 +279,193 @@ const codeGen = {
 
         return `${loop} {\n${bodyLines}\n}`;
     },
-    "for-range": ({item, expr, body}, scope) => {
-        const loop = `for (const ${genJS(item)} of ${genJS(expr, scope)})`;
+    "for-range": ({item, expr, body, mod}, scope) => {
+        if (mod === true) {
+            scope.flags.async = true;
+        }
+        const loop = `for${mod ? " await" : ""} (const ${genJS(item)} of ${genJS(expr, scope)})`;
         const bodyLines = body.map(i => genJS(i, scope) + ";").join("\n");
         return `${loop} {\n${bodyLines}\n}`;
+    },
+    "while": ({condition, body}, scope) =>
+        `while (${genJS(condition, scope)}) {\n${body.map(i => genJS(i, scope) + ";").join("\n")}\n}`,
+    "assignment": ({name, value, op}, scope) => `(${genJS(name, scope)} ${op} ${genJS(value, scope)})`,
+    "expansion": ({expr}, scope) => `...${genJS(expr, scope)}`,
+    "range": ({start, end, inc}, scope) => `range(${genJS(start, scope)}, ${genJS(end, scope)}, ${genJS(inc, scope)})`,
+    "import": ({structure, source}, scope) => {
+        if (structure === null) {
+            return `import ${genJS(source)}`;
+        }
+        return `import ${structure} from ${genJS(source)}`;
+    },
+    "export": ({source, isDefault}, scope) => {
+        const def = isDefault ? "default " : "";
+        return `export ${def}${genJS(source, scope)}`;
+    },
+    "block": ({body}, scope) => `{\n${body.map(i => genJS(i, scope) + ";").join("\n")}\n}`,
+    "not": ({expr}, scope) => `!${genJS(expr, scope)}`,
+    "class": ({decorators, name, extend, body}, scope) => {
+        const decoString = decorators.length === 0
+            ? ""
+            : `${decorators.map(d => genJS(d, scope)).join("\n")}\n`;
+        const extension = extend ? ` extends ${genJS(extend, scope)}` : "";
+        const className = name ? ` ${name}` : "";
+        const bodyLines = body.map(l => genJS(l, scope)).join("\n");
+        return `${decoString}class${className}${extension} {\n${bodyLines}\n}`;
+    },
+    "class-static-var": ({name, value}, scope) => `static ${name} = ${genJS(value, scope)};`,
+    "class-func": ({name, decorators, args, body}, parentScope) => {
+        const scope = Scope(parentScope);
+        const argDef = `(${args.map(i => genJS(i, scope)).join(', ')}) `;
+        const bodyLines = body.map(i => genJS(i, scope) + ";").join("\n");
+        const decoString = decorators.length === 0
+            ? ""
+            : `${decorators.map(d => genJS(d, parentScope)).join("\n")}\n`;
+
+        const vars = dif(scope.vars, parentScope.vars);
+        const code = vars.size !== 0
+            ? `var ${Array.from(vars).join(", ")};\n${bodyLines}`
+            : bodyLines;
+        let funcName = name;
+        if (scope.flags.generator === true) {
+            funcName = `*${funcName}`;
+        }
+        if (scope.flags.async === true) {
+            funcName = `async ${funcName}`;
+        }
+
+        return `${decoString}${funcName}${argDef}{\n${code}\n}`;
+    },
+    "jsx-prop": ({key, value}, scope) => {
+        if (key === null) {
+            return `{...${genJS(value, scope)}}`;
+        }
+        if (value === undefined) {
+            return key;
+        }
+        return `${key}={${genJS(value, scope)}}`;
+    },
+    "jsx-self-closing": ({tag, props}, scope) => `<${tag} ${props.map(p => genJS(p, scope)).join(' ')} />`,
+    "jsx-tag-open": ({tag, props}, scope) => `<${tag} ${props.map(p => genJS(p, scope)).join(' ')}>`,
+    "jsx-tag-close": ({tag}, scope) => `</${tag}>`,
+    "jsx-tag": ({open, children, close}, scope) => `${genJS(open, scope)}\n${children.map(c => genJS(c, scope)).join("\n")}\n${genJS(close)}`,
+    "jsx-content": ({content}) => content,
+    "jsx-expression": ({expr}, scope) => `{${genJS(expr, scope)}}`,
+    "ternary": ({condition, truish, falsish}, scope) => `${genJS(condition, scope)} ? ${genJS(truish, scope)} : ${genJS(falsish, scope)}`,
+    "try-catch": ({attempt, cancel, error, final}, parentScope) => {
+        if (error === null) {
+            error = [
+                {type: "identifier", name: "error"},
+                [{
+                    type: "function-call",
+                    name: {
+                        type: "bin-op",
+                        left: {type: "identifier", name: "console"},
+                        right: {type: "identifier", name: "log"},
+                        op: "."
+                    },
+                    nullCheck: "",
+                    args: [{type: "identifier", name: "error"}]
+                }]
+            ];
+        }
+        const tryScope = Scope(parentScope);
+        const catchScope = Scope(parentScope);
+        const finallyScope = Scope(parentScope);
+
+        const tryLines = attempt.map(i => genJS(i, tryScope) + ";").join("\n");
+        const catchLines = error[1].map(i => genJS(i, catchScope) + ";").join("\n");
+        const finallyLines = (final === null) ? [] : final.map(i => genJS(i, finallyScope) + ";").join("\n");
+
+        const tryCode = `${genScopeVars(tryScope, parentScope)}${tryLines}`;
+        const catchCode = `${genScopeVars(catchScope, parentScope)}${catchLines}`;
+        const finallyCode = `${genScopeVars(finallyScope, parentScope)}${finallyLines}`;
+
+        const finallyText = (final === null) ? "" : `\nfinally {\n${finallyLines}\n}`;
+
+        parentScope.flags.async = tryScope.flags.async || catchScope.flags.async || finallyScope.flags.async;
+        parentScope.flags.generator = tryScope.flags.generator || catchScope.flags.generator || finallyScope.flags.generator;
+
+        return `try {\n${tryCode}\n}\ncatch (${genJS(error[0])}) {\n${catchCode}\n}${finallyText}`;
+    },
+    "construct": ({decorators, name, body}, scope) => {
+        const parts = body.reduce(
+            (parts, part) => {
+                switch (true) {
+                    case (part.name === "new" && part.type === "construct-function"): {
+                        parts._constructor = part;
+                        break;
+                    }
+                    case (part.type === "construct-var"): {
+                        parts.vars.push(part);
+                        break;
+                    }
+                    case (part.accessMod !== ""): {
+                        parts.accessors.push(part);
+                        break;
+                    }
+                    default: {
+                        parts.funcs.push(part);
+                        break;
+                    }
+                }
+                return parts;
+            },
+            {_constructor: null, vars: [], funcs: [], accessors: []}
+        );
+        const [args, constructBody] = parts._constructor === null
+            ? [[], []]
+            : [parts._constructor.args, [...parts._constructor.body]];
+        const argDef = `(${args.map(i => genJS(i, scope)).join(', ')})`;
+        const createLines = constructBody.map(i => genJS(i, scope) + ";");
+        const functionLines = parts.funcs.map(
+            (func) => `this.${func.name} = ${genJS({type: "function-decl", args: func.args, body: func.body, bindable: false}, scope)};`
+        );
+        const collection = {
+            type: "object",
+            pairs: parts.accessors.map(
+                acc => ({
+                    type: "pair",
+                    accessMod: "",
+                    decorators: [],
+                    key: {type: "identifier", name: acc.name},
+                    value: {
+                        type: "object",
+                        pairs: [{
+                            type: "pair",
+                            accessMod: "",
+                            decorators: [],
+                            key: {type: "identifier", name: acc.accessMod},
+                            value: {
+                                type: "function-decl",
+                                args: [],
+                                body: acc.body,
+                                bindable: false
+                            }
+                        }]
+                    }
+                })
+            )
+        };
+        const staticVars = parts.vars.map(
+            (svar) => `${name}.${svar.name} = ${genJS(svar.value, scope)}`
+        );
+
+        const constructBodyCode = [
+            "const self = {};",
+            `Object.defineProperties(this, ${genJS(collection, scope)})`,
+            ...functionLines,
+            ...createLines,
+            `return this;`
+        ].join("\n");
+
+        const constructCode = decorators.reduceRight(
+            (current, deco) => {
+                return `${deco.genJS(func, scope)}(${current})`;
+            },
+            `function construct${argDef} {${constructBodyCode}}`
+        );
+        return `const ${name} = (() => {\nconst construct = ${constructCode}\nreturn (...args) => construct.apply({}, args);})();\n${staticVars.join(";\n")}`;
     }
 };
 
@@ -307,7 +498,8 @@ const compileTree = (sourceTree) => {
     }
     catch (e) {
         console.error(e);
-        print(sourceTree);
+        return null;
+        // print(sourceTree);
     }
 };
 

@@ -61,7 +61,7 @@
         CompareCase: tokenType("compare-case", "expr", "body"),
         DefaultCase: tokenType("default-case", "body"),
         ForObject: tokenType("for-object", "key", "value", "expr", "body"),
-        ForIn: tokenType("for-range", "item", "expr", "body"),
+        ForIn: tokenType("for-range", "item", "mod", "expr", "body"),
         While: tokenType("while", "condition", "body"),
         Comment: tokenType("comment", "text"),
         Expansion: tokenType("expansion", "expr"),
@@ -226,17 +226,18 @@ Import
     = "import" __ source:String {
         return Token.Import(null, source);
     }
+    / "import" __ name:ImportDefault parts:(_ "," _ (ImportStructure / ImportStar)) __ "from" __ source:String {
+        // const form = parts === null
+        // ? name
+        // : `${name}, ${parts[3]}`;
+        const form = `${name}, ${parts[3]}`;
+        return Token.Import(form, source);
+    }
     / "import" __ structure:ImportStructure __ "from" __ source:String {
         return Token.Import(structure, source);
     }
     / "import" __ star:ImportStar __ "from" __ source:String {
         return Token.Import(star, source);
-    }
-    / "import" __ name:ImportDefault parts:(_ "," _ (ImportStructure / ImportStar))? __ "from" __ source:String {
-        const form = parts === null
-            ? name
-            : `${name}, ${parts[3]}`;
-        return Token.Import(form, source);
     }
 ImportName = name:Word {topLevelScope.vars.add(name); return name;}
 ImportAs = source:Word __ "as" __ name:Word {topLevelScope.vars.add(name); return text();}
@@ -453,7 +454,11 @@ Ternary
         return Token.Ternary(condition, truish, falsish);
     }
 NullCoalesce
-    = head:AddSub tail:(__ "??" __ AddSub)* {
+    = head:Bitwise tail:(__ "??" __ Bitwise)* {
+        return tailProcess(head, tail);
+    }
+Bitwise
+    = head:AddSub tail:(__ ("|" / "&" / "^" / "<<<" / ">>>" / "<<" / ">>") __ AddSub)* {
         return tailProcess(head, tail);
     }
 AddSub
@@ -520,14 +525,17 @@ Arg
     / Identifier
     / Destructure
     / "..." id:Word {
-        const name = Token.Identifier(id);
-        return {
-            type: "cheat",
-            name,
-            toJS(scope) {
-                return `...${id}`;
-            }
-        };
+        return Token.Expansion(
+            Token.Identifier(id)
+        );
+        // const name = Token.Identifier(id);
+        // return {
+        //     type: "cheat",
+        //     name,
+        //     toJS(scope) {
+        //         return `...${id}`;
+        //     }
+        // };
     }
 
 CallArgList
@@ -537,13 +545,14 @@ CallArgList
 CallArg
     = Expression
     / "..." expr:Expression {
-        return {
-            type: "cheat",
-            expr,
-            toJS(scope) {
-                return `...${expr.toJS(scope)}`;
-            }
-        };
+        return Token.Expansion(expr);
+        // return {
+        //     type: "cheat",
+        //     expr,
+        //     toJS(scope) {
+        //         return `...${expr.toJS(scope)}`;
+        //     }
+        // };
     }
 CallBit
     = nullCheck:"?"? "(" _ args:CallArgList _ ")" {
@@ -628,11 +637,11 @@ For
             body
         );
     }
-    / "for" __ key:Word __ "in" __ range:Range __ "{" _ body:Program _ "}" {
-        return Token.ForIn(Token.Identifier(key), range, body);
+    / mod:("wait" __)? "for" __ key:Word __ "in" __ range:Range __ "{" _ body:Program _ "}" {
+        return Token.ForIn(Token.Identifier(key), mod !== null, range, body);
     }
-    / "for" __ key:ForInVars __ "in" __ expr:Expression __ "{" _ body:Program _ "}" {
-        return Token.ForIn(key, expr, body);
+    / mod:("wait" __)? "for" __ key:ForInVars __ "in" __ expr:Expression __ "{" _ body:Program _ "}" {
+        return Token.ForIn(key, mod !== null, expr, body);
     }
 ForInVars
     = Identifier

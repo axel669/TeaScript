@@ -371,7 +371,7 @@
                 return `${loop} {\n${bodyLines};\n}`;
             }
         }),
-        While: (condition, body) => ({
+        -While: (condition, body) => ({
             type: "while",
             condition, body,
             toJS(scope) {
@@ -385,21 +385,21 @@
                 return `/* ${text} */`;
             }
         }),
-        Expansion: (expr) => ({
+        -Expansion: (expr) => ({
             type: "exapnsion",
             expr,
             toJS(scope) {
                 return `...${expr.toJS(scope)}`;
             }
         }),
-        Range: (start, end, inc) => ({
+        -Range: (start, end, inc) => ({
             type: "range",
             start, end, inc,
             toJS(scope) {
                 return `range(${start.toJS(scope)}, ${end.toJS(scope)}, ${inc.toJS(scope)})`;
             }
         }),
-        Import: (structure, source) => ({
+        -Import: (structure, source) => ({
             type: "import",
             structure, source,
             toJS(scope) {
@@ -409,7 +409,7 @@
                 return `import ${structure} from ${source.toJS()}`;
             }
         }),
-        Export: (source, isDefault = false) => ({
+        -Export: (source, isDefault = false) => ({
             type: "export",
             source, isDefault,
             toJS(scope) {
@@ -417,21 +417,21 @@
                 return `export ${def}${source.toJS(scope)}`;
             }
         }),
-        Block: (body) => ({
+        -Block: (body) => ({
             type: "block",
             body,
             toJS(scope) {
                 return `{\n${body.map(i => i.toJS(scope)).join(";\n")};\n}`;
             }
         }),
-        Not: (expr) => ({
+        -Not: (expr) => ({
             type: "not",
             expr,
             toJS(scope) {
                 return `!${expr.toJS(scope)}`;
             }
         }),
-        Assignment: (name, value, op) => ({
+        -Assignment: (name, value, op) => ({
             type: "assignment",
             name, value, op,
             toJS(scope) {
@@ -452,7 +452,7 @@
                 return `${func.toJS(scope)}(${content})`;
             }
         }),
-        Class: (decorators, name, extend, body) => ({
+        -Class: (decorators, name, extend, body) => ({
             type: "class",
             decorators, name, extend, body,
             toJS(scope) {
@@ -465,14 +465,14 @@
                 return `${decoString}class${className}${extension} {\n${bodyLines}\n}`;
             }
         }),
-        ClassStaticVar: (name, value) => ({
+        -ClassStaticVar: (name, value) => ({
             type: "class-static-var",
             name, value,
             toJS(scope) {
                 return `static ${name} = ${value.toJS(scope)};`;
             }
         }),
-        ClassFunction: (name, decorators, args, body) => ({
+        -ClassFunction: (name, decorators, args, body) => ({
             type: "class-func",
             body,
             toJS(parentScope) {
@@ -574,7 +574,7 @@
                 return "";
             }
         }),
-        JSXProp: (key, value) => ({
+        -JSXProp: (key, value) => ({
             type: "jsx-prop",
             key, value,
             toJS(scope) {
@@ -587,56 +587,56 @@
                 return `${key}={${value.toJS(scope)}}`;
             }
         }),
-        JSXSelfClosing: (tag, props) => ({
+        -JSXSelfClosing: (tag, props) => ({
             type: "jsx-self-closing",
             tag, props,
             toJS(scope) {
                 return `<${tag} ${props.map(p => p.toJS(scope)).join(' ')} />`;
             }
         }),
-        JSXTagOpen: (tag, props) => ({
+        -JSXTagOpen: (tag, props) => ({
             type: "jsx-tag-open",
             tag, props,
             toJS(scope) {
                 return `<${tag} ${props.map(p => p.toJS(scope)).join(' ')}>`;
             }
         }),
-        JSXTagClose: (tag) => ({
+        -JSXTagClose: (tag) => ({
             type: "jsx-tag-close",
             tag,
             toJS(scope) {
                 return `</${tag}>`;
             }
         }),
-        JSXTag: (open, children, close) => ({
+        -JSXTag: (open, children, close) => ({
             type: "jsx-tag",
             open, children, close,
             toJS(scope) {
                 return `${open.toJS(scope)}\n${children.map(c => c.toJS(scope)).join("\n")}\n${close.toJS()}`;
             }
         }),
-        JSXContent: (content) => ({
+        -JSXContent: (content) => ({
             type: "jsx-content",
             content,
             toJS(scope) {
                 return content;
             }
         }),
-        JSXExpression: (expr) => ({
+        -JSXExpression: (expr) => ({
             type: "jsx-expression",
             expr,
             toJS(scope) {
                 return `{${expr.toJS(scope)}}`;
             }
         }),
-        Ternary: (condition, truish, falsish) => ({
+        -Ternary: (condition, truish, falsish) => ({
             type: "ternary",
             condition, truish, falsish,
             toJS(scope) {
                 return `${condition.toJS(scope)} ? ${truish.toJS(scope)} : ${falsish.toJS(scope)}`;
             }
         }),
-        Try: (attempt, cancel, error, final) => ({
+        -Try: (attempt, cancel, error, final) => ({
             type: "try-catch",
             attempt, cancel, error, final,
             toJS(parentScope) {
