@@ -3,7 +3,12 @@ construct Point {
 
     new(x, y) => {
         Point.count += 1
-        [#x, #y] = [x, y]
+        if y == undefined {
+            [#x, #y] = [x.x, x.y]
+        }
+        else {
+            [#x, #y] = [x, y]
+        }
     }
 
     get x() => #x
@@ -16,11 +21,22 @@ construct Point {
 
     normalize() => Point(#x / @mag, #y / @mag)
 
+    taxicab(dest) => {
+        for x in #x + 1...dest.x + 1 {
+            yield Point(x, #y)
+        }
+        for y in #y + 1...dest.y + 1 {
+            yield Point(dest.x, y)
+        }
+        // yield Point(dest)
+    }
+
     print() => console.log(@toString())
 }
 
 let a = Point(1, 2)
 let b = Point(3, 4)
 
-a.add(b).print()
-a.add(b).normalize().print()
+for p in a.taxicab(b) {
+    p.print()
+}

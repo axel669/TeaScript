@@ -81,6 +81,9 @@ const codeGen = {
         const code = vars.size !== 0
             ? `\nvar ${Array.from(vars).join(", ")};\n${bodyLines}`
             : bodyLines;
+        const binding = (scope.flags.generator === true && bindable === false)
+            ? ".bind(this)"
+            : "";
         let funcDef = bindable === false
             ? `${argDef} => `
             : `function ${argDef} `;
@@ -94,7 +97,7 @@ const codeGen = {
             funcDef = `async ${funcDef}`;
         }
 
-        return `${funcDef}{${code}}`;
+        return `${funcDef}{${code}}${binding}`;
     },
     "unary": ({op, expr, standAlone}, scope) => {
         if (op === "await") {
@@ -291,7 +294,10 @@ const codeGen = {
         `while (${genJS(condition, scope)}) {\n${body.map(i => genJS(i, scope) + ";").join("\n")}\n}`,
     "assignment": ({name, value, op}, scope) => `(${genJS(name, scope)} ${op} ${genJS(value, scope)})`,
     "expansion": ({expr}, scope) => `...${genJS(expr, scope)}`,
-    "range": ({start, end, inc}, scope) => `range(${genJS(start, scope)}, ${genJS(end, scope)}, ${genJS(inc, scope)})`,
+    "range": ({start, end, inc}, scope) => {
+        globalFuncCalls.add("range");
+        return `range(${genJS(start, scope)}, ${genJS(end, scope)}, ${genJS(inc, scope)})`;
+    },
     "import": ({structure, source}, scope) => {
         if (structure === null) {
             return `import ${genJS(source)}`;
@@ -475,10 +481,7 @@ const compileTree = (sourceTree) => {
     const compileScope = scope.copy();
     const binCode = bin === null ? "" : genJS(bin, compileScope) + "\n";
     const importsCode = imports.map(i => genJS(i, compileScope));
-    const transpiledCode = [
-        ...Array.from(globalFuncCalls).map(name => globalFuncs[name]),
-        ...code.map(c => genJS(c, compileScope))
-    ];
+    const transpiledCode = code.map(c => genJS(c, compileScope));
 
     const topLevelVars = dif(compileScope.vars, scope.vars);
     const tlvCode = topLevelVars.size > 0
@@ -488,6 +491,7 @@ const compileTree = (sourceTree) => {
     const allCode = [
         binCode,
         ...importsCode,
+        ...Array.from(globalFuncCalls).map(name => globalFuncs[name]),
         tlvCode,
         ...transpiledCode
     ].filter(l => l !== "")
