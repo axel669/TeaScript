@@ -769,7 +769,7 @@ Number
 Hex = [0-9a-f]i
 
 String
-    = text:('"' ("\\$" / ("${" Expression "}") / [^"\\] / "\\\"" / "\\u" . . . . / "\\\\")* '"') {
+    = text:('"' ("\\$" / ("${" Expression "}") / [^"\\] / "\\" ("\"" / "\\" / "n" / "r" / "t" / "v" / "f") / "\\u" . . . .)* '"') {
         const bits = text[1].reduce(
             ({current, all}, next, index) => {
                 if (Array.isArray(next) === true) {
