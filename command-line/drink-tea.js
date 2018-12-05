@@ -10,7 +10,8 @@ const argv = require("@axel669/arg-parser")({
     "targetFile:o|output|target-file": [i => i],
     "eval:e|eval": [i => i],
     "help:h|help": undefined,
-    "sourceCode:s|source-code": [i => i]
+    "sourceCode:s|source-code": [i => i],
+    "ugly:u|ugly": undefined
 });
 
 const sourceFile = (argv._.length > 0)
