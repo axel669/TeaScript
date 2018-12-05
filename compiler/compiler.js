@@ -43,9 +43,15 @@ const prettyOptions = {
 //     console.log(pretty);
 // }
 
-module.exports = (tea) => prettier.format(
-    compile(
+module.exports = (tea, makePretty = true) => {
+    const rawJS = compile(
         parser.parse(tea)
-    ),
-    prettyOptions
-);
+    );
+    if (makePretty === false) {
+        return rawJS;
+    }
+    return prettier.format(
+        rawJS,
+        prettyOptions
+    );
+}
