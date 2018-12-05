@@ -490,6 +490,7 @@ const compileTree = (sourceTree) => {
 
     const allCode = [
         binCode,
+        `"use strict";`,
         ...importsCode,
         ...Array.from(globalFuncCalls).map(name => globalFuncs[name]),
         tlvCode,
