@@ -9,7 +9,6 @@ const print = (obj) => console.log(
 const globalFuncs = {
     range: "var range=function(a,b){for(var c=2<arguments.length&&void 0!==arguments[2]?arguments[2]:1,d=[],e=a;0<c&&e<b||0>c&&e>b;)d.push(e),e+=c;return d};"
 };
-const globalFuncCalls = new Set();
 
 const dif = (a, b) => new Set(Array.from(a).filter(i => b.has(i) === false));
 
@@ -31,11 +30,11 @@ const Scope = (baseScope = null) => {
 };
 const topLevelScope = Scope();
 
-const formatBody = (body, scope) => {
+const formatBody = (body, scope, top = false) => {
     if (body.length === 0) {
         return "";
     }
-    return `\n${body.map(line => genJS(line, scope) + ";").join("\n")}\n`;
+    return `\n${body.map(line => genJS(line, scope, top) + ";").join("\n")}\n`;
 };
 const genScopeVars = (scope, parentScope) => {
     const vars = dif(scope.vars, parentScope.vars);
@@ -75,12 +74,12 @@ const codeGen = {
     "function-decl": ({args, body, bindable}, parentScope, forceName = null) => {
         const scope = Scope(parentScope);
         const argDef = `(${args.map(i => genJS(i, scope)).join(', ')})`;
-        const bodyLines = formatBody(body, scope);
+        const bodyLines = formatBody(body, scope, true);
 
         const vars = dif(scope.vars, parentScope.vars);
-        const code = vars.size !== 0
-            ? `\nvar ${Array.from(vars).join(", ")};\n${bodyLines}`
-            : bodyLines;
+        let code = vars.size !== 0
+            ? `{\nvar ${Array.from(vars).join(", ")};\n${bodyLines}}`
+            : `{${bodyLines}}`;
         const binding = (scope.flags.generator === true && bindable === false)
             ? ".bind(this)"
             : "";
@@ -97,7 +96,23 @@ const codeGen = {
             funcDef = `async ${funcDef}`;
         }
 
-        return `${funcDef}{${code}}${binding}`;
+        // console.log(
+        //     bindable === false,
+        //     body.length === 1,
+        //     body[0].op === "return",
+        //     code.match(/\n/g).length === 2
+        // );
+        // if (bindable === false && body.length > 0 && body[0].op === "return" && code.match(/\n/g).length === 2) {
+        if (bindable === false && body.length === 1 && body[0].op === "return" && vars.size === 0) {
+            code = `(${code.substring(
+                code.indexOf("return") + 7,
+                code.lastIndexOf(";")
+            )})`;
+        }
+
+        // console.log("function-decl", body.length > 0 && body[0].op === "return", code.match(/\n/g).length);
+
+        return `${funcDef}${code}${binding}`;
     },
     "unary": ({op, expr, standAlone}, scope) => {
         if (op === "await") {
@@ -201,9 +216,11 @@ const codeGen = {
             case op === "!=" || op === "==":
                 return `${genJS(left, scope)} ${op}= ${genJS(right, scope)}`;
 
+            case op === "?0":
             case op === "??": {
                 const ref = genVarName(scope, "nullref");
-                return `((${ref} = ${genJS(left, scope)}) != null ? ${ref} : ${genJS(right, scope)})`;
+                const compValue = (op === "??") ? "null" : "0";
+                return `((${ref} = ${genJS(left, scope)}) != ${compValue} ? ${ref} : ${genJS(right, scope)})`;
             }
 
             default:
@@ -238,7 +255,7 @@ const codeGen = {
     "compare-case": ({expr, body}, scope) => {
         const bodyCopy = [...body];
         const needsScope = bodyCopy.findIndex(tok => tok.type.startsWith("create-")) !== -1;
-        if (body.length > 0 && body[body.length - 1].type !== 'break') {
+        if (body.length === 0 || (body.length > 0 && body[body.length - 1].type !== 'break')) {
             bodyCopy.push({type: "break", value: null, label: null});
         }
         const bodyLines = bodyCopy.map(i => genJS(i, scope) + ";").join("\n");
@@ -294,10 +311,7 @@ const codeGen = {
         `while (${genJS(condition, scope)}) {\n${body.map(i => genJS(i, scope) + ";").join("\n")}\n}`,
     "assignment": ({name, value, op}, scope) => `(${genJS(name, scope)} ${op} ${genJS(value, scope)})`,
     "expansion": ({expr}, scope) => `...${genJS(expr, scope)}`,
-    "range": ({start, end, inc}, scope) => {
-        globalFuncCalls.add("range");
-        return `range(${genJS(start, scope)}, ${genJS(end, scope)}, ${genJS(inc, scope)})`;
-    },
+    "range": ({start, end, inc}, scope) => `range(${genJS(start, scope)}, ${genJS(end, scope)}, ${genJS(inc, scope)})`,
     "import": ({structure, source}, scope) => {
         if (structure === null) {
             return `import ${genJS(source)}`;
@@ -310,16 +324,93 @@ const codeGen = {
     },
     "block": ({body}, scope) => `{\n${body.map(i => genJS(i, scope) + ";").join("\n")}\n}`,
     "not": ({expr}, scope) => `!${genJS(expr, scope)}`,
-    "class": ({decorators, name, extend, body}, scope) => {
+    "class": ({decorators, name, extend, body}, scope, top = false) => {
         const decoString = decorators.length === 0
             ? ""
             : `${decorators.map(d => genJS(d, scope)).join("\n")}\n`;
         const extension = extend ? ` extends ${genJS(extend, scope)}` : "";
-        const className = name ? ` ${name}` : "";
-        const bodyLines = body.map(l => genJS(l, scope)).join("\n");
-        return `${decoString}class${className}${extension} {\n${bodyLines}\n}`;
+        const className = name ? name : "";
+        const [funcs, vars, funcDecos] = body.reduce(
+            ([funcs, vars, funcDecos], entry) => {
+                if (entry.type.startsWith("class-static") === false || entry.name === null) {
+                    // console.log(entry.name || entry.value.name);
+                    funcs.push(entry);
+                    if (entry.decorators !== undefined && entry.decorators.length > 0) {
+                        funcDecos.push([
+                            entry.name === null,
+                            entry.name || entry.value.name,
+                            entry.decorators
+                        ]);
+                    }
+                }
+                else {
+                    vars.push(entry);
+                }
+                return [funcs, vars, funcDecos];
+            },
+            [[], [], []]
+        );
+        const bodyLines = funcs.map(l => genJS(l, scope)).join("\n");
+        const classBase = `class ${className}${extension} {\n${bodyLines}\n}`;
+        const classCode = [classBase];
+        const ref = (() => {
+            if (className.length === 0) {
+                return genVarName(scope, "_class");
+            }
+            if ((vars.length > 0 || funcDecos.length > 0) && top === false) {
+                return genVarName(scope, "_class");
+            }
+            return className;
+        })();
+        // console.log(funcDecos);
+        if (funcDecos.length > 0) {
+            classCode.push(
+                ...funcDecos.map(
+                    ([isStatic, name, decos]) => {
+                        const iref = (decorators.length > 0) ? genVarName(scope, "__class") : ref;
+                        const base = isStatic === false ? `${iref}.prototype` : iref;
+                        const decoList = decos.map(deco => genJS(deco.func, scope)).join(",");
+                        const decoString = `[${decoList}].reduceRight((descriptor, decorator) => decorator(${base}, "${name}", descriptor), Object.getOwnPropertyDescriptor(${base}, "${name}"))`;
+                        if (iref !== ref) {
+                            classCode[0] = `${iref} = ${classBase}`;
+                        }
+
+                        return `Object.defineProperty(\n${base},\n"${name}",\n${decoString}\n)`;
+                    }
+                )
+            );
+        }
+        if (vars.length > 0) {
+            classCode.push(
+                ...vars.map(
+                    svar => `${ref}.${svar.name} = ${genJS(svar.value, scope)}`
+                )
+            );
+        }
+        // if (
+        if (decorators.length > 0) {
+            // const iref = genVarName("_class_i", scope);
+            const decoClass = decorators.reduceRight(
+                (last, deco) => `${genJS(deco.func, scope)}(${last})`,
+                classCode[0]
+            );
+            classCode[0] = decoClass;
+        }
+        if (decorators.length === 0) {
+            if (top === true) {
+                return classCode.map(line => line + ";").join("\n");
+            }
+            // if (vars.length !== 0) {
+        }
+        if (top === true) {
+            return `const ${className} = ${classCode.map(line => line + ";").join("\n")}`;
+        }
+        if (vars.length !== 0 || funcDecos.length !== 0) {
+            return `(${ref} = ${classCode.join(",")}, ${ref})`;
+        }
+        return classCode.join("\n");
     },
-    "class-static-var": ({name, value}, scope) => `static ${name} = ${genJS(value, scope)};`,
+    "class-static-member": ({name, value}, scope) => `static ${genJS(value, scope)}`,
     "class-func": ({name, decorators, args, body}, parentScope) => {
         const scope = Scope(parentScope);
         const argDef = `(${args.map(i => genJS(i, scope)).join(', ')}) `;
@@ -340,7 +431,7 @@ const codeGen = {
             funcName = `async ${funcName}`;
         }
 
-        return `${decoString}${funcName}${argDef}{\n${code}\n}`;
+        return `${funcName}${argDef}{\n${code}\n}`;
     },
     "jsx-prop": ({key, value}, scope) => {
         if (key === null) {
@@ -354,9 +445,47 @@ const codeGen = {
     "jsx-self-closing": ({tag, props}, scope) => `<${tag} ${props.map(p => genJS(p, scope)).join(' ')} />`,
     "jsx-tag-open": ({tag, props}, scope) => `<${tag} ${props.map(p => genJS(p, scope)).join(' ')}>`,
     "jsx-tag-close": ({tag}, scope) => `</${tag}>`,
-    "jsx-tag": ({open, children, close}, scope) => `${genJS(open, scope)}\n${children.map(c => genJS(c, scope)).join("\n")}\n${genJS(close)}`,
-    "jsx-content": ({content}) => content,
-    "jsx-expression": ({expr}, scope) => `{${genJS(expr, scope)}}`,
+    "jsx-tag": ({open, children, close}, scope) => {
+        const isHTML = open.tag.type === "identifier"
+            && /^[a-z]+$/.test(open.tag.name) === true;
+        const tagArg = isHTML === true ? JSON.stringify(open.tag.name) : genJS(open.tag, scope);
+
+        const props = genJS(
+            {
+                type: "object",
+                pairs: open.props.map(
+                    prop => {
+                        if (prop.key === null) {
+                            return {
+                                type: "expansion",
+                                expr: prop.value
+                            };
+                        }
+                        return {
+                            type: "pair",
+                            accessMod: "",
+                            decorators: [],
+                            key: {
+                                type: "identifier",
+                                name: prop.key
+                            },
+                            value: prop.value
+                        };
+                    }
+                )
+            },
+            scope
+        );
+        const childArgs = children.map(
+            child => genJS(child, scope)
+        ).join(",\n");
+        console.log(childArgs);
+        // console.log(children);
+
+        return `React.createElement(\n${tagArg},\n${props},\n${childArgs})`;
+    },
+    "jsx-content": ({content}) => JSON.stringify(content.replace(/\\\{/g, "{")),
+    "jsx-expression": ({expr}, scope) => genJS(expr, scope),
     "ternary": ({condition, truish, falsish}, scope) => `${genJS(condition, scope)} ? ${genJS(truish, scope)} : ${genJS(falsish, scope)}`,
     "try-catch": ({attempt, cancel, error, final}, parentScope) => {
         if (error === null) {
@@ -472,16 +601,19 @@ const codeGen = {
             `function construct${argDef} {${constructBodyCode}}`
         );
         return `const ${name} = (() => {\nconst construct = ${constructCode}\nreturn (...args) => construct.apply({}, args);})();\n${staticVars.join(";\n")}`;
-    }
+    },
+    "negation": ({expr}, scope) => `(-(${genJS(expr, scope)}))`
 };
 
-const compileTree = (sourceTree) => {
+const compileTree = (sourceTree, options) => {
     const {bin, imports, code, scope, globalCalls} = sourceTree;
 
     const compileScope = scope.copy();
+    compileScope.options = options;
+
     const binCode = bin === null ? "" : genJS(bin, compileScope) + "\n";
     const importsCode = imports.map(i => genJS(i, compileScope));
-    const transpiledCode = code.map(c => genJS(c, compileScope));
+    const transpiledCode = code.map(c => genJS(c, compileScope, true));
 
     const topLevelVars = dif(compileScope.vars, scope.vars);
     const tlvCode = topLevelVars.size > 0
@@ -492,7 +624,7 @@ const compileTree = (sourceTree) => {
         binCode,
         `"use strict";`,
         ...importsCode,
-        ...Array.from(globalFuncCalls).map(name => globalFuncs[name]),
+        ...Array.from(globalCalls).map(name => globalFuncs[name]),
         tlvCode,
         ...transpiledCode
     ].filter(l => l !== "")

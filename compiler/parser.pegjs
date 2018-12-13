@@ -1,8 +1,9 @@
 {
     const Scope = (baseScope = null) => {
         const vars = new Set(baseScope ? baseScope.vars : []);
+        const options = baseScope ? baseScope.options : {}
         const flags = {async: false, generator: false};
-        const self = {vars, flags};
+        const self = {vars, flags, options};
         self.copy = () => Scope(self);
         return self;
     };
@@ -74,7 +75,7 @@
         Decorator: tokenType("decorator", "func"),
         SimpleDecorator: tokenType("simple-decorator", "func"),
         Class: tokenType("class", "decorators", "name", "extend", "body"),
-        ClassStaticVar: tokenType("class-static-var", "name", "value"),
+        ClassStaticMember: tokenType("class-static-member", "name", "value"),
         ClassFunction: tokenType("class-func", "name", "decorators", "args", "body"),
         Construct: tokenType("construct", "decorators", "name", "body"),
         ConstructFunction: tokenType("construct-function", "accessMod", "name", "decorators", "args", "body"),
@@ -88,7 +89,8 @@
         JSXExpression: tokenType("jsx-expression", "expr"),
         Ternary: tokenType("ternary", "condition", "truish", "falsish"),
         Try: tokenType("try-catch", "attempt", "cancel", "error", "final"),
-        BinMagic: tokenType("bin-magic", "comment")
+        BinMagic: tokenType("bin-magic", "comment"),
+        Negation: tokenType("negation", "expr")
     };
     const binaryOp = (left, right, op) => ({
         type: "bin-op",
@@ -305,14 +307,14 @@ Destructure
         }
         return Token.Array(tokens);
     }
-    / "{" first:(DestructureAs / DestructureNested / DestructureDefault / Identifier) tail:(_ "," _ (DestructureAs / DestructureNested / DestructureDefault / Identifier))* rest:(_ "," _ "..." Word)? "}" {
+    / "{" _ first:(DestructureAs / DestructureNested / DestructureDefault / Identifier) tail:(_Separator (DestructureAs / DestructureNested / DestructureDefault / Identifier))* rest:(_Separator "..." Word)? _ "}" {
         const tokens = [
             first,
-            ...tail.map(i => i[3])
+            ...tail.map(i => i[1])
         ];
         if (rest !== null) {
             topLevelScope.vars.add(rest[4]);
-            tokens.push(Token.Identifier(`...${rest[4]}`));
+            tokens.push(Token.Identifier(`...${rest[2]}`));
         }
         for (const tok of tokens) {
             if (tokenRegex.test(tok.name) === true) {
@@ -331,7 +333,8 @@ DestructureNested
         return Token.Pair("", [], Token.Identifier(key), value);
     }
 DestructureDefault
-    = name:IdentifierToken __ "=" __ value:(Number / String / IdentifierToken) {
+    /* = name:IdentifierToken __ "=" __ value:(Number / String / IdentifierToken) { */
+    = name:IdentifierToken __ "=" __ value:NullCoalesce {
         return Token.Pair("", [], name, value, "=");
     }
 
@@ -359,6 +362,8 @@ Expression
     / While
     / Switch
     / Try
+    / Throw
+    / Delete
     / Return
     / Await
     / Yield
@@ -408,16 +413,20 @@ JSXProp
     / _ key:Word "=" "{" _ value:Expression _ "}" {
         return Token.JSXProp(key, value);
     }
-    / "{..." expr:(Token / Grouped) "}" {
+    / _ "{..." expr:(Token / Grouped) "}" {
         return Token.JSXProp(null, expr);
     }
     / _ key:Word {
         return Token.JSXProp(key, undefined);
     }
-JSXTagName = $(Word ("." Word)*)
+/* JSXTagName = $(Word ("." Word)*) */
+JSXTagName
+    = IdentifierToken
 JSXContent
     = "{" _ expr:Expression _ "}" {return Token.JSXExpression(expr);}
-    / content:$("\\{" / [^<\n])+ {return Token.JSXContent(content);}
+    / content:$("\\\x7b" / [^<\r\n\{])+ {
+        return Token.JSXContent(content);
+    }
 
 Assignment
     = name:(IdentifierTokenLValue / DestructureLValue) __ op:("=" / "+=" / "-=" / "*=" / "/=" / "**=") __ value:(Ternary / Expression) {
@@ -437,7 +446,7 @@ Logical
     / Compare
 
 Compare
-    = left:(NullCoalesce) tail:(__ ("==" / "!=" / "<" / ">" / "<=" / ">=" / "instanceof") __ NullCoalesce)+ {
+    = left:(NullCoalesce) tail:(__ ("==" / "!=" / "<=" / ">=" / "<" / ">" / "instanceof") __ NullCoalesce)+ {
         // console.log(tail);
         if (tail.length === 1) {
             const [, op, , right] = tail[0];
@@ -454,7 +463,7 @@ Ternary
         return Token.Ternary(condition, truish, falsish);
     }
 NullCoalesce
-    = head:Bitwise tail:(__ "??" __ Bitwise)* {
+    = head:Bitwise tail:(__ ("??" / "?0") __ Bitwise)* {
         return tailProcess(head, tail);
     }
 Bitwise
@@ -483,7 +492,8 @@ Grouped
 
 Negated
     = "-" expr:(Identifier / Grouped) {
-        return Token.Grouped(unaryOp(expr, "-"));
+        return Token.Negation(expr);
+        // return Token.Grouped(unaryOp(expr, "-"));
     }
 Not = "!" expr:(Identifier / Grouped) {return Token.Not(expr);}
 
@@ -582,6 +592,8 @@ Await
     = "await" __ expr:Expression {return Token.Unary("await", expr, false);}
 Yield
     = "yield" __ expr:(Ternary / Expression) {return Token.Unary("yield", expr, false);}
+Throw
+    = "throw" __ expr:(Ternary / Expression) {return Token.Unary("throw", expr);}
 
 Delete
     = "delete" __ expr:Expression {return Token.Unary("delete", expr);}
@@ -683,10 +695,13 @@ ClassBody
         return entries.map(e => e[1]);
     }
 ClassEntry
-    = ClassStaticVar / ClassFunction
-ClassStaticVar
+    = ClassStaticMember / ClassFunction
+ClassStaticMember
     = "static" __ name:Word __ "=" __ value:Expression {
-        return Token.ClassStaticVar(name, value)
+        return Token.ClassStaticMember(name, value)
+    }
+    / "static" __ value:ClassFunction {
+        return Token.ClassStaticMember(null, value);
     }
 ClassFunction
     = decorators:(_ Decorator _)* name:Word func:FunctionDecl {
@@ -751,13 +766,7 @@ IdentifierTokenLValue
     / Identifier
 
 Number
-    = text:$("-"? [0-9]+ ("." [0-9]+)? ("e" ("+" / "-")? [0-9]+)?) {
-        return Token.Number(location(), parseFloat(text));
-    }
-    / text:$("-"? [0-9]+) {
-        return Token.Number(location(), parseInt(text, 10));
-    }
-    / text:$("0x" Hex+) {
+    = text:$("0x" Hex+) {
         return Token.Number(location(), parseInt(text, 16));
     }
     / text:$("0b" [01]+) {
@@ -765,6 +774,12 @@ Number
     }
     / text:$("0o" [0-7]+) {
         return Token.Number(location(), parseInt(text, 8));
+    }
+    / text:$("-"? [0-9]+ ("." [0-9]+)? ("e" ("+" / "-")? [0-9]+)?) {
+        return Token.Number(location(), parseFloat(text));
+    }
+    / text:$("-"? [0-9]+) {
+        return Token.Number(location(), parseInt(text, 10));
     }
 Hex = [0-9a-f]i
 
