@@ -228,11 +228,11 @@ Import
     = "import" __ source:String {
         return Token.Import(null, source);
     }
-    / "import" __ name:ImportDefault parts:(_ "," _ (ImportStructure / ImportStar)) __ "from" __ source:String {
-        // const form = parts === null
-        // ? name
-        // : `${name}, ${parts[3]}`;
-        const form = `${name}, ${parts[3]}`;
+    / "import" __ name:ImportDefault parts:(_ "," _ (ImportStructure / ImportStar))? __ "from" __ source:String {
+        const form = parts === null
+            ? name
+            : `${name}, ${parts[3]}`;
+        // const form = `${name}, ${parts[3]}`;
         return Token.Import(form, source);
     }
     / "import" __ structure:ImportStructure __ "from" __ source:String {

@@ -181,10 +181,10 @@ function peg$parse(input, options) {
       peg$c19 = "from",
       peg$c20 = peg$literalExpectation("from", false),
       peg$c21 = function(name, parts, source) {
-              // const form = parts === null
-              // ? name
-              // : `${name}, ${parts[3]}`;
-              const form = `${name}, ${parts[3]}`;
+              const form = parts === null
+                  ? name
+                  : `${name}, ${parts[3]}`;
+              // const form = `${name}, ${parts[3]}`;
               return Token.Import(form, source);
           },
       peg$c22 = function(structure, source) {
@@ -1671,6 +1671,9 @@ function peg$parse(input, options) {
             } else {
               peg$currPos = s4;
               s4 = peg$FAILED;
+            }
+            if (s4 === peg$FAILED) {
+              s4 = null;
             }
             if (s4 !== peg$FAILED) {
               s5 = peg$parse__();
