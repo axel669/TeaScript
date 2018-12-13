@@ -1,0 +1,45 @@
+let wat = (parent) => class extends parent {
+    static _name = "Test!"
+    static test() => {}
+}
+let bind = (target, name, desc) => desc
+let testdec = (target, name, desc) => {
+    let {value} = desc
+    let newValue = (...args) => value(...args)
+    Object.defineProperty(
+        newValue
+        "name"
+        {
+            enumerable: false
+            value: "decorated<${value.name}>"
+        }
+    )
+
+    return {...desc, value: newValue}
+}
+
+class woah {
+    static t = 0
+}
+class normal {
+    @bind
+    t() => {}
+}
+let tt = class woah2 {
+    static t = 1
+}
+let t = class test {
+    @bind
+    t() => {null}
+}
+let t2 = @wat class test {
+    @testdec
+    test() => {null}
+}
+
+@wat
+class test {
+}
+
+console.log(t, t2, test, tt)
+console.log(test.test(), t2*().test.name)
