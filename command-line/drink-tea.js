@@ -21,39 +21,58 @@ const sourceFile = (argv._.length > 0)
     )
     : null;
 
-switch (true) {
-    case (argv.help === true): {
-        const package = require("../package.json");
-        console.log(`${package.name} ${package.version}`);
-        break;
+try {
+    switch (true) {
+        case (argv.help === true): {
+            const package = require("../package.json");
+            console.log(`${package.name} ${package.version}`);
+            break;
+        }
+        case (argv.targetFile !== undefined): {
+            const sourceCode = fs.readFileSync(sourceFile, {encoding: 'utf8'});
+            const transpiledCode = transpile(sourceCode, argv.ugly !== true);
+            fs.writeFileSync(
+                path.resolve(
+                    process.cwd(),
+                    argv.targetFile[0]
+                ),
+                transpiledCode
+            );
+            break;
+        }
+        case (argv.print === true): {
+            const sourceCode = (argv.sourceCode === undefined)
+                ? fs.readFileSync(sourceFile, {encoding: 'utf8'})
+                : argv.sourceCode[0];
+            const transpiledCode = transpile(sourceCode, argv.ugly !== true);
+            console.log(transpiledCode);
+            break;
+        }
+        case (argv.eval !== undefined): {
+            const transpiledCode = transpile(argv.eval[0]);
+            new Function(transpiledCode)();
+            break;
+        }
+        default: {
+            require("../require.js");
+            require(sourceFile);
+        }
     }
-    case (argv.targetFile !== undefined): {
-        const sourceCode = fs.readFileSync(sourceFile, {encoding: 'utf8'});
-        const transpiledCode = transpile(sourceCode, argv.ugly !== true);
-        fs.writeFileSync(
-            path.resolve(
-                process.cwd(),
-                argv.targetFile[0]
-            ),
-            transpiledCode
+}
+catch (error) {
+    if (error.location !== undefined) {
+        const {start, end} = error.location;
+        const snippet = error.sourceCode.substring(
+            start.offset - start.column + 1,
+            end.offset + 5
+        )
+        const arrow = " ".repeat(start.column + 1) + "^"
+        console.error(
+            `Parse Error\n  Line: ${start.line}\n  ${snippet}\n${arrow}\n${error.message}\n`
         );
-        break;
+        // console.log(error.location);
     }
-    case (argv.print === true): {
-        const sourceCode = (argv.sourceCode === undefined)
-            ? fs.readFileSync(sourceFile, {encoding: 'utf8'})
-            : argv.sourceCode[0];
-        const transpiledCode = transpile(sourceCode, argv.ugly !== true);
-        console.log(transpiledCode);
-        break;
-    }
-    case (argv.eval !== undefined): {
-        const transpiledCode = transpile(argv.eval[0]);
-        new Function(transpiledCode)();
-        break;
-    }
-    default: {
-        require("../require.js");
-        require(sourceFile);
+    else {
+        throw error;
     }
 }

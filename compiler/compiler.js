@@ -44,14 +44,22 @@ const prettyOptions = {
 // }
 
 module.exports = (tea, makePretty = true) => {
-    const rawJS = compile(
-        parser.parse(tea)
-    );
-    if (makePretty === false) {
-        return rawJS;
+    try {
+        const rawJS = compile(
+            parser.parse(tea)
+        );
+        if (makePretty === false) {
+            return rawJS;
+        }
+        return prettier.format(
+            rawJS,
+            prettyOptions
+        );
     }
-    return prettier.format(
-        rawJS,
-        prettyOptions
-    );
+    catch (error) {
+        if (error.location !== undefined) {
+            error.sourceCode = tea;
+        }
+        throw error;
+    }
 }
