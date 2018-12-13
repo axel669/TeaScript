@@ -1,0 +1,33 @@
+providers: [
+  {
+    key: "bt"
+    config:
+      commands: [
+        {
+          project: "C:\\Users\\cmorgan\\Documents\\git\\TeaScript"
+          source: "C:\\Users\\cmorgan\\Documents\\git\\TeaScript\\.build-tools.cson"
+          name: "Build Parser"
+          command: "pegjs --cache parser.pegjs"
+          wd: "./compiler"
+          env: {}
+          modifier:
+            save_all: {}
+          environment:
+            name: "child_process"
+            config:
+              stdoe: "both"
+          stdout:
+            pipeline: []
+          stderr:
+            pipeline: []
+          output:
+            console:
+              close_success: true
+              queue_in_buffer: true
+              colors: false
+              stdin: false
+          version: 2
+        }
+      ]
+  }
+]
