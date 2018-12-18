@@ -96,21 +96,12 @@ const codeGen = {
             funcDef = `async ${funcDef}`;
         }
 
-        // console.log(
-        //     bindable === false,
-        //     body.length === 1,
-        //     body[0].op === "return",
-        //     code.match(/\n/g).length === 2
-        // );
-        // if (bindable === false && body.length > 0 && body[0].op === "return" && code.match(/\n/g).length === 2) {
-        if (bindable === false && body.length === 1 && body[0].op === "return" && vars.size === 0) {
+        if (bindable === false && forceName === null && body.length === 1 && body[0].op === "return" && vars.size === 0) {
             code = `(${code.substring(
                 code.indexOf("return") + 7,
                 code.lastIndexOf(";")
             )})`;
         }
-
-        // console.log("function-decl", body.length > 0 && body[0].op === "return", code.match(/\n/g).length);
 
         return `${funcDef}${code}${binding}`;
     },
@@ -166,7 +157,7 @@ const codeGen = {
             ? ""
             : `${normald.map(d => genJS(d, scope)).join("\n")}\n`;
         if (accessMod !== "") {
-            return `${decoString}${genJS(value, scope, `${accessMod} ${genJS(key, scope)}`)}`;
+            return `${decoString}${genJS(value, scope, `${accessMod} ${genJS(key, scope)}`, true)}`;
         }
         const valueStr = simpled.reduceRight(
             (current, deco) => genJS(deco, scope, current),
@@ -442,7 +433,12 @@ const codeGen = {
         }
         return `${key}={${genJS(value, scope)}}`;
     },
-    "jsx-self-closing": ({tag, props}, scope) => `<${tag} ${props.map(p => genJS(p, scope)).join(' ')} />`,
+    "jsx-self-closing": ({tag, props}, scope) => {
+        return codeGen["jsx-tag"](
+            {open: {tag, props}, children: []},
+            scope
+        );
+    },
     "jsx-tag-open": ({tag, props}, scope) => `<${tag} ${props.map(p => genJS(p, scope)).join(' ')}>`,
     "jsx-tag-close": ({tag}, scope) => `</${tag}>`,
     "jsx-tag": ({open, children, close}, scope) => {
@@ -479,7 +475,7 @@ const codeGen = {
         const childArgs = children.map(
             child => genJS(child, scope)
         ).join(",\n");
-        console.log(childArgs);
+        // console.log(childArgs);
         // console.log(children);
 
         return `React.createElement(\n${tagArg},\n${props},\n${childArgs})`;
@@ -622,7 +618,7 @@ const compileTree = (sourceTree, options) => {
 
     const allCode = [
         binCode,
-        `"use strict";`,
+        `"use strict"`,
         ...importsCode,
         ...Array.from(globalCalls).map(name => globalFuncs[name]),
         tlvCode,
