@@ -4,8 +4,9 @@ let base = <Test a=10></Test>
 let base2 = <a.b b={}></a.b>
 
 class Thing extends Component {
-    render() => <div style={width: 100} {...test}>
+    render() => <Main style={width: 100} {...test}>
+        <Main />
         Test: {React.Children.toArray(@props).length}
         \{this is a test @ $ }
-    </div>
+    </Main>
 }
