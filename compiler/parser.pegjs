@@ -258,7 +258,9 @@ Export
     / "export" __ exports:ExportList {
         return Token.Export(Token.Identifier(exports));
     }
-ExportList = $("{" _ ExportEntry (_ "," _ ExportEntry)* _ "}")
+ExportList = "{" _ first:ExportEntry rest:(_Separator ExportEntry)* _ "}" {
+    return `{${[first, ...rest.map(e => e[1])].join(",\n")}}`;
+}
 ExportEntry = Word / $(Word __ "as" __ Word)
 
 VariableCreate
