@@ -352,10 +352,32 @@ DestructureLValue
             tok => (tok === "*") ? Token.Identifier("") : tok
         );
         if (rest !== null) {
-            topLevelScope.vars.add(rest[4]);
             tokens.push(Token.Identifier(`...${rest[4]}`));
         }
         return Token.Array(tokens);
+    }
+    / "{" first:(DestructureLAs / DestructureDefault / DestructureLValue / IdentifierTokenLValue)
+            tail:(_Separator (DestructureLAs / DestructureDefault / DestructureLValue / IdentifierTokenLValue))*
+            rest:(_Separator "..." IdentifierTokenLValue)? "}" {
+        const tokens = [
+            first,
+            ...tail.map(i => i[1])
+        ];
+        if (rest !== null) {
+            rest = rest[2]
+            if (rest.type === "identifier") {
+                rest.name = `...${rest.name}`;
+            }
+            if (rest.type === "bin-op") {
+                rest.left.name = `...${rest.left.name}`;
+            }
+            tokens.push(rest);
+        }
+        return Token.Object(tokens);
+    }
+DestructureLAs
+    = name:Word __ "as" __ target:IdentifierTokenLValue {
+        return Token.Pair("", [], Token.Identifier(name), target);
     }
 
 Expression
