@@ -584,7 +584,7 @@ const codeGen = {
 
         const constructBodyCode = [
             "const self = {};",
-            `Object.defineProperties(this, ${genJS(collection, scope)})`,
+            `Object.defineProperties(this, ${genJS(collection, scope)});`,
             ...functionLines,
             ...createLines,
             `return this;`
