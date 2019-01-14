@@ -572,7 +572,7 @@ const codeGen = {
         // const functionLines = parts.funcs.map(
         //     (func) => `this.${func.name} = ${genJS({type: "function-decl", args: func.args, body: func.body, bindable: false}, scope)};`
         // );
-        const collectionMap = acc => (console.log(acc), {
+        const collectionMap = acc => ({
             type: "pair",
             accessMod: "",
             decorators: [],
@@ -595,7 +595,13 @@ const codeGen = {
                         value: {
                             type: "function-decl",
                             args: [],
-                            body: (acc.accessMod === '') ? [acc] : acc.body,
+                            body: (acc.accessMod === '')
+                                ? [{
+                                    type: "unary",
+                                    op: "return",
+                                    expr: {type: "function-decl", bindable: false, args: acc.args, body: acc.body}
+                                }]
+                                : acc.body,
                             bindable: false
                         }
                     }
