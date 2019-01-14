@@ -24,17 +24,17 @@ construct Point {
     normalize() => Point(#x / #mag, #y / #mag)
 
     taxicab(dest) => {
-        for x in #x + 1...dest.x + 1 {
-            yield Point(x, #y)
+        for x in #x...dest.x {
+            yield Point(x + 1, #y)
         }
-        for y in #y + 1...dest.y + 1 {
-            yield Point(dest.x, y)
+        for y in #y...dest.y {
+            yield Point(dest.x, y + 1)
         }
         // yield Point(dest)
     }
 
     print() => console.log(#toString())
-    #printWat() => console.log(#test())
+    printWat() => console.log(#test())
 }
 
 let a = Point(1, 2)
@@ -42,7 +42,6 @@ let b = Point(3, 4)
 
 console.log(a.taxicab)
 
-// for p in a.taxicab(b) {
-//     p.print()
-//     p.printWat()
-// }
+for p in a.taxicab(b) {
+    p.print()
+}
