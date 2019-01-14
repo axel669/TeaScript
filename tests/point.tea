@@ -11,6 +11,8 @@ construct Point {
         }
     }
 
+    #test() => #x ** #y
+
     get x() => #x
     get y() => #y
     get mag() => (#x ** 2 + #y ** 2) ** 0.5
@@ -19,7 +21,7 @@ construct Point {
 
     toString() => "Point(${#x}, ${#y})"
 
-    normalize() => Point(#x / @mag, #y / @mag)
+    normalize() => Point(#x / #mag, #y / #mag)
 
     taxicab(dest) => {
         for x in #x + 1...dest.x + 1 {
@@ -31,12 +33,16 @@ construct Point {
         // yield Point(dest)
     }
 
-    print() => console.log(@toString())
+    print() => console.log(#toString())
+    #printWat() => console.log(#test())
 }
 
 let a = Point(1, 2)
 let b = Point(3, 4)
 
-for p in a.taxicab(b) {
-    p.print()
-}
+console.log(a.taxicab)
+
+// for p in a.taxicab(b) {
+//     p.print()
+//     p.printWat()
+// }

@@ -520,63 +520,99 @@ const codeGen = {
         return `try {\n${tryCode}\n}\ncatch (${genJS(error[0])}) {\n${catchCode}\n}${finallyText}`;
     },
     "construct": ({decorators, name, body}, scope) => {
+        const checks = [
+            [
+                part =>
+                    part.name === "new" && part.type === "construct-function",
+                "_constructor"
+            ],
+            [
+                part => part.type === "construct-var",
+                "vars"
+            ],
+            [
+                part => part.scope === null && part.accessMod === "",
+                "publicAPI"
+            ],
+            [
+                part => part.scope === null && part.accessMod !== "",
+                "publicAccess"
+            ],
+            [
+                part => part.scope === "#",
+                "self"
+            ]
+        ];
         const parts = body.reduce(
             (parts, part) => {
-                switch (true) {
-                    case (part.name === "new" && part.type === "construct-function"): {
-                        parts._constructor = part;
-                        break;
-                    }
-                    case (part.type === "construct-var"): {
-                        parts.vars.push(part);
-                        break;
-                    }
-                    case (part.accessMod !== ""): {
-                        parts.accessors.push(part);
-                        break;
-                    }
-                    default: {
-                        parts.funcs.push(part);
+                for (const [check, target] of checks) {
+                    if (check(part) === true) {
+                        parts[target].push(part);
                         break;
                     }
                 }
                 return parts;
             },
-            {_constructor: null, vars: [], funcs: [], accessors: []}
+            {
+                _constructor: [],
+                vars: [],
+                // funcs: [],
+                accessors: [],
+                publicAPI: [],
+                publicAccess: [],
+                self: []
+            }
         );
-        const [args, constructBody] = parts._constructor === null
+        // const [args, constructBody] = parts._constructor === null
+        const [args, constructBody] = parts._constructor.length === 0
             ? [[], []]
-            : [parts._constructor.args, [...parts._constructor.body]];
+            : [parts._constructor[0].args, [...parts._constructor[0].body]];
         const argDef = `(${args.map(i => genJS(i, scope)).join(', ')})`;
         const createLines = constructBody.map(i => genJS(i, scope) + ";");
-        const functionLines = parts.funcs.map(
-            (func) => `this.${func.name} = ${genJS({type: "function-decl", args: func.args, body: func.body, bindable: false}, scope)};`
-        );
+        // const functionLines = parts.funcs.map(
+        //     (func) => `this.${func.name} = ${genJS({type: "function-decl", args: func.args, body: func.body, bindable: false}, scope)};`
+        // );
+        const collectionMap = acc => (console.log(acc), {
+            type: "pair",
+            accessMod: "",
+            decorators: [],
+            key: {type: "identifier", name: acc.name},
+            value: {
+                type: "object",
+                pairs: [
+                    {
+                        type: "pair",
+                        accessMod: "",
+                        decorators: [],
+                        key: {type: "identifier", name: "configurable"},
+                        value: {type: "bool", value: "false"}
+                    },
+                    {
+                        type: "pair",
+                        accessMod: "",
+                        decorators: [],
+                        key: {type: "identifier", name: acc.accessMod || "get"},
+                        value: {
+                            type: "function-decl",
+                            args: [],
+                            body: (acc.accessMod === '') ? [acc] : acc.body,
+                            bindable: false
+                        }
+                    }
+                ]
+            }
+        });
         const collection = {
             type: "object",
-            pairs: parts.accessors.map(
-                acc => ({
-                    type: "pair",
-                    accessMod: "",
-                    decorators: [],
-                    key: {type: "identifier", name: acc.name},
-                    value: {
-                        type: "object",
-                        pairs: [{
-                            type: "pair",
-                            accessMod: "",
-                            decorators: [],
-                            key: {type: "identifier", name: acc.accessMod},
-                            value: {
-                                type: "function-decl",
-                                args: [],
-                                body: acc.body,
-                                bindable: false
-                            }
-                        }]
-                    }
-                })
-            )
+            pairs: parts.publicAPI.map(collectionMap)
+        };
+        const accessors = {
+            type: "object",
+            pairs: parts.publicAccess.map(collectionMap)
+        };
+        const selfCollection = {
+            type: "object",
+            pairs: parts.self.map(collectionMap)
         };
         const staticVars = parts.vars.map(
             (svar) => `${name}.${svar.name} = ${genJS(svar.value, scope)}`
@@ -584,10 +620,14 @@ const codeGen = {
 
         const constructBodyCode = [
             "const self = {};",
-            `Object.defineProperties(this, ${genJS(collection, scope)});`,
-            ...functionLines,
+            "const publicAPI = {};",
+            `Object.defineProperties(publicAPI, ${genJS(collection, scope)});`,
+            `Object.defineProperties(self, ${genJS(selfCollection, scope)});`,
+            "Object.defineProperties(self, Object.getOwnPropertyDescriptors(publicAPI));",
+            `Object.defineProperties(publicAPI, ${genJS(accessors, scope)});`,
+            // ...functionLines,
             ...createLines,
-            `return this;`
+            `return publicAPI;`
         ].join("\n");
 
         const constructCode = decorators.reduceRight(

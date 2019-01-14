@@ -1,8 +1,9 @@
 const {createFilter} = require("rollup-pluginutils");
 const transpile = require("../compiler/compiler.js");
 
-module.exports = function teascriptPlugin(options = {}) {
-    const filter = createFilter(options.include, options.exclude);
+module.exports = function teascriptPlugin(_options = {}) {
+    const {include, exclude, ...options} = _options;
+    const filter = createFilter(include, exclude);
 
     return {
         transform(code, id) {
@@ -11,7 +12,7 @@ module.exports = function teascriptPlugin(options = {}) {
             }
 
             return {
-                code: transpile(code),
+                code: transpile(code, options),
                 map: {mappings: ""}
             };
         }

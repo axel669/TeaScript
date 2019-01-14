@@ -43,10 +43,11 @@ const prettyOptions = {
 //     console.log(pretty);
 // }
 
-module.exports = (tea, makePretty = true) => {
+module.exports = (tea, {makePretty, ...options} = {}) => {
     try {
         const rawJS = compile(
-            parser.parse(tea)
+            parser.parse(tea),
+            options
         );
         if (makePretty === false) {
             return rawJS;

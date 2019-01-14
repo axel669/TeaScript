@@ -11,7 +11,8 @@ const argv = require("@axel669/arg-parser")({
     "eval:e|eval": [i => i],
     "help:h|help": undefined,
     "sourceCode:s|source-code": [i => i],
-    "ugly:u|ugly": undefined
+    "ugly:u|ugly": undefined,
+    "noImport:no-import": undefined
 });
 
 const sourceFile = (argv._.length > 0)
@@ -20,6 +21,10 @@ const sourceFile = (argv._.length > 0)
         argv._[0]
     )
     : null;
+const compilerOptions = {
+    makePretty: argv.ugly !== true,
+    importAsRequire: argv.noImport === true
+};
 
 try {
     switch (true) {
@@ -30,7 +35,7 @@ try {
         }
         case (argv.targetFile !== undefined): {
             const sourceCode = fs.readFileSync(sourceFile, {encoding: 'utf8'});
-            const transpiledCode = transpile(sourceCode, argv.ugly !== true);
+            const transpiledCode = transpile(sourceCode, compilerOptions);
             fs.writeFileSync(
                 path.resolve(
                     process.cwd(),
@@ -44,12 +49,12 @@ try {
             const sourceCode = (argv.sourceCode === undefined)
                 ? fs.readFileSync(sourceFile, {encoding: 'utf8'})
                 : argv.sourceCode[0];
-            const transpiledCode = transpile(sourceCode, argv.ugly !== true);
+            const transpiledCode = transpile(sourceCode, compilerOptions);
             console.log(transpiledCode);
             break;
         }
         case (argv.eval !== undefined): {
-            const transpiledCode = transpile(argv.eval[0]);
+            const transpiledCode = transpile(argv.eval[0], compilerOptions);
             new Function(transpiledCode)();
             break;
         }

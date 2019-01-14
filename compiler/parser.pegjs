@@ -78,7 +78,7 @@
         ClassStaticMember: tokenType("class-static-member", "name", "value"),
         ClassFunction: tokenType("class-func", "name", "decorators", "args", "body"),
         Construct: tokenType("construct", "decorators", "name", "body"),
-        ConstructFunction: tokenType("construct-function", "accessMod", "name", "decorators", "args", "body"),
+        ConstructFunction: tokenType("construct-function", "accessMod", "scope", "name", "decorators", "args", "body"),
         ConstructVar: tokenType("construct-var", "name", "value"),
         JSXProp: tokenType("jsx-prop", "key", "value"),
         JSXSelfClosing: tokenType("jsx-self-closing", "tag", "props"),
@@ -184,9 +184,9 @@
 }
 
 TopLevel
-    = bin:(BinMagic n__ / _) imports:(_ Import __)* _ program:TopLevelProgram _ {
+    = bin:(BinMagic n__)? _ imports:(_ Import __)* _ program:TopLevelProgram _ {
         return {
-            bin: bin.length === 2 ? bin[0] : null,
+            bin: bin !== null ? bin[0] : null,
             imports: imports.map(i => i[1]),
             code: program,
             scope: topLevelScope,
@@ -517,7 +517,6 @@ Grouped
 Negated
     = "-" expr:(Identifier / Grouped) {
         return Token.Negation(expr);
-        // return Token.Grouped(unaryOp(expr, "-"));
     }
 Not = "!" expr:(Identifier / Grouped) {return Token.Not(expr);}
 
@@ -562,14 +561,6 @@ Arg
         return Token.Expansion(
             Token.Identifier(id)
         );
-        // const name = Token.Identifier(id);
-        // return {
-        //     type: "cheat",
-        //     name,
-        //     toJS(scope) {
-        //         return `...${id}`;
-        //     }
-        // };
     }
 
 CallArgList
@@ -749,9 +740,10 @@ ConstructVar
         return Token.ConstructVar(name, value);
     }
 ConstructFunction
-    = decorators:(_ Decorator _)* accessMod:(("get" / "set") __)? name:Word func:FunctionDecl {
+    = decorators:(_ Decorator _)* accessMod:(("get" / "set") __)? scope:("#")? name:Word func:FunctionDecl {
         return Token.ConstructFunction(
             accessMod ? accessMod[0] : "",
+            scope,
             name,
             decorators.map(d => d[1]),
             func.args,
@@ -837,7 +829,7 @@ Regex
     }
 
 Bool = value:("true" / "false") {return Token.Bool(value === "true");}
-Undefined = ("undefined" / "void") {return Token.Undefined();}
+Undefined = "void" {return Token.Undefined();}
 Null = "null" {return Token.Null();}
 
 Identifier

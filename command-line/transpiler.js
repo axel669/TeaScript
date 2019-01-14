@@ -8,8 +8,8 @@ const beautifyOptions = {
     brace_style: "end-expand"
 };
 
-module.exports = (source, makePretty = true) => {
-    const {code} = parser.parse(source);
+module.exports = (source, {makePretty, ...options} = {}) => {
+    const {code} = parser.parse(source, options);
     return (makePretty === true)
         ? beautify(code, beautifyOptions)
         : code;
