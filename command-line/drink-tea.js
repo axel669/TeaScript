@@ -3,6 +3,9 @@
 const path = require("path");
 const fs = require("fs");
 
+const glob = require("glob");
+const mkdirp = require("mkdirp");
+
 const transpile = require("../compiler/compiler.js");
 const argv = require("@axel669/arg-parser")({
     "_:": [i => i],
@@ -12,7 +15,8 @@ const argv = require("@axel669/arg-parser")({
     "help:h|help": undefined,
     "sourceCode:s|source-code": [i => i],
     "ugly:u|ugly": undefined,
-    "noImport:no-import": undefined
+    "noImport:no-import": undefined,
+    "directory:d|directory|dir": [i => i, i => i]
 });
 
 const sourceFile = (argv._.length > 0)
@@ -31,6 +35,34 @@ try {
         case (argv.help === true): {
             const package = require("../package.json");
             console.log(`${package.name} ${package.version}`);
+            break;
+        }
+        case (argv.directory !== undefined): {
+            const [source, dest] = argv.directory;
+            const replacerRegex = new RegExp(`^${source}`);
+
+            glob(
+                `${source}/**/*.tea`.replace("//", "/"),
+                (err, files) => {
+                    for (const file of files) {
+                        console.log(">", file);
+                        const destFile = file
+                            .replace(replacerRegex, dest)
+                            .replace(/\.tea$/, ".js");
+                        const sourceCode = fs.readFileSync(file, {encoding: 'utf8'});
+                        const transpiledCode = transpile(sourceCode, compilerOptions);
+
+                        mkdirp.sync(
+                            path.dirname(destFile)
+                        );
+
+                        fs.writeFileSync(
+                            destFile,
+                            transpiledCode
+                        );
+                    }
+                }
+            );
             break;
         }
         case (argv.targetFile !== undefined): {
