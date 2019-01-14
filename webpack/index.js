@@ -1,3 +1,5 @@
 const transpile = require("../compiler/compiler.js");
 
-module.exports = (source) => transpile(source);
+module.exports = function (source, options) {
+    return transpile(source, this.query || {});
+};
