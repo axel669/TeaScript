@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script crossorigin src="https://unpkg.com/react@16.7.0/umd/react.development.js"></script>
+        <script crossorigin src="https://unpkg.com/react-dom@16.7.0/umd/react-dom.development.js"></script>
+        <script src="../../browser/transpiler.js"></script>
+    </head>
+    <body>
+        <script type="text/teascript">
+        let wait = (time) => Promise*(
+            (resolve) => setTimeout(resolve, time)
+        )
+
+        (() => {
+            console.log("test")
+            await wait(500)
+            console.log("test again")
+        })()
+        </script>
+        <script type="text/teascript">
+        let t = [0...10]
+        for i in t {
+            console.log({
+                i
+                v: i ** 2
+            })
+        }
+        </script>
+
+        <app-root></app-root>
+        <script type="text/teascript">
+        ReactDOM.render(
+            <div>Test!</div>
+            document.querySelector("app-root")
+        )
+        </script>
+    </body>
+</html>
