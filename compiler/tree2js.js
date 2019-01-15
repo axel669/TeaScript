@@ -1,11 +1,3 @@
-const util = require("util");
-const print = (obj) => console.log(
-    util.inspect(
-        obj,
-        {showHidden: false, depth: null}
-    )
-);
-
 const globalFuncs = {
     range: "var range=function(a,b){for(var c=2<arguments.length&&void 0!==arguments[2]?arguments[2]:1,d=[],e=a;0<c&&e<b||0>c&&e>b;)d.push(e),e+=c;return d};"
 };
