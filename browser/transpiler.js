@@ -14685,15 +14685,25 @@
 
   document.addEventListener(
       "DOMContentLoaded",
-      evt => {
+      async evt => {
           const scripts = [
               ...document.querySelectorAll("script[type='text/teascript']")
           ];
           for (const scriptTag of scripts) {
+              let source = scriptTag.innerText;
+
+              if (scriptTag.src !== "") {
+                  const response = await fetch(scriptTag.src);
+
+                  if (response.status < 200 || response.status >= 300) {
+                      throw new Error(await response.text());
+                  }
+                  source = await response.text();
+              }
+
               new Function(
-                  transpile(scriptTag.innerText)
+                  transpile(source)
               )();
-              // console.log(scriptTag.innerText);
           }
       }
   );
