@@ -445,7 +445,10 @@ JSXProp
     }
 /* JSXTagName = $(Word ("." Word)*) */
 JSXTagName
-    = IdentifierToken
+    = text:$([a-zA-Z] ([a-zA-Z0-9] / "-")*) {
+        return Token.String(location(), [text]);
+    }
+    / IdentifierToken
 JSXContent
     = "{" _ expr:Expression _ "}" {return Token.JSXExpression(expr);}
     / content:$("\\\x7b" / [^<\r\n\{])+ {
