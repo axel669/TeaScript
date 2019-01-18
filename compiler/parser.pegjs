@@ -445,7 +445,7 @@ JSXProp
     }
 /* JSXTagName = $(Word ("." Word)*) */
 JSXTagName
-    = text:$([a-zA-Z] ([a-zA-Z0-9] / "-")*) {
+    = text:$([a-z]+ ("-" [a-z0-9]+)+) {
         return Token.String(location(), [text]);
     }
     / IdentifierToken
