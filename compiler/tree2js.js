@@ -417,11 +417,11 @@ const codeGen = {
         return `${funcName}${argDef}{\n${code}\n}`;
     },
     "jsx-prop": ({key, value}, scope) => {
-        if (key === null) {
-            return `{...${genJS(value, scope)}}`;
-        }
         if (value === undefined) {
             return key;
+        }
+        if (key === null) {
+            return `{...${genJS(value, scope)}}`;
         }
         return `${key}={${genJS(value, scope)}}`;
     },
@@ -449,6 +449,9 @@ const codeGen = {
                                 expr: prop.value
                             };
                         }
+                        const value = prop.value === undefined
+                            ? {type: "bool", value: true}
+                            : prop.value
                         return {
                             type: "pair",
                             accessMod: "",
@@ -457,7 +460,7 @@ const codeGen = {
                                 type: "identifier",
                                 name: prop.key
                             },
-                            value: prop.value
+                            value
                         };
                     }
                 )

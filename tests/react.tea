@@ -3,8 +3,8 @@ import React, {Component} from "react"
 let base = <Test a=10></Test>
 let base2 = <a.b b={}></a.b>
 let namespaced = <ns.Thing style={top: 0} />
-let hyphen = <a-b />
-let hyphen2 = <app-root>Test</app-root>
+let hyphen = <a-b disabled />
+let hyphen2 = <app-root primary>Test</app-root>
 
 class Thing extends Component {
     render() => <Main style={width: 100} {...test}>
