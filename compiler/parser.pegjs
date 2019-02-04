@@ -825,6 +825,28 @@ String
         ).all;
         return Token.String(location(), bits);
     }
+    / text:('`' ("\\$" / ("${" Expression "}") / [^`] / $("\\" ("\"" / "\\" / "n" / "r" / "t" / "v" / "f")) / "\\u" . . . .)* '`') {
+        const bits = text[1].reduce(
+            ({current, all}, next, index) => {
+                if (Array.isArray(next) === true) {
+                    all.push(current.join(""));
+                    all.push(next[1]);
+                    current = [];
+                }
+                else {
+                    current.push(next);
+                }
+
+                if (index === text[1].length - 1 && current.length > 0) {
+                    all.push(current.join(""));
+                }
+
+                return {current, all};
+            },
+            {current: [], all: []}
+        ).all;
+        return Token.String(location(), bits);
+    }
 
 Regex
     = text:$("/" ("\\/" / [^\/])+ "/" ("g" / "m" / "i")*) {
