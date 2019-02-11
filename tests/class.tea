@@ -21,9 +21,12 @@ let testdec = (target, name, desc) => {
 class woah {
     static t = 0
 }
+@wrap
 class normal {
     @bind
     t() => {}
+    @bind
+    t2() => {}
 }
 let tt = class woah2 {
     static t = 1
