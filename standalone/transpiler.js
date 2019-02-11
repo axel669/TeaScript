@@ -14960,23 +14960,24 @@
               }
               return className;
           })();
+          const iref = (decorators.length > 0) ? genVarName$1(scope, "__class") : ref;
           // console.log(funcDecos);
           if (funcDecos.length > 0) {
               classCode.push(
                   ...funcDecos.map(
                       ([isStatic, name, decos]) => {
-                          const iref = (decorators.length > 0) ? genVarName$1(scope, "__class") : ref;
+                          // const iref = ref;
                           const base = isStatic === false ? `${iref}.prototype` : iref;
                           const decoList = decos.map(deco => genJS(deco.func, scope)).join(",");
                           const decoString = `[${decoList}].reduceRight((descriptor, decorator) => decorator(${base}, "${name}", descriptor), Object.getOwnPropertyDescriptor(${base}, "${name}"))`;
-                          if (iref !== ref) {
-                              classCode[0] = `${iref} = ${classBase}`;
-                          }
 
                           return `Object.defineProperty(\n${base},\n"${name}",\n${decoString}\n)`;
                       }
                   )
               );
+              if (iref !== ref) {
+                  classCode[0] = `${iref} = ${classBase}`;
+              }
           }
           if (vars.length > 0) {
               classCode.push(
