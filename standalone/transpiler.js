@@ -15073,8 +15073,8 @@
                               accessMod: "",
                               decorators: [],
                               key: {
-                                  type: "identifier",
-                                  name: prop.key
+                                  type: "string",
+                                  text: [prop.key]
                               },
                               value
                           };
