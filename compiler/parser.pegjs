@@ -326,7 +326,17 @@ Destructure
         return Token.Object(tokens);
     }
 DestructureAs
-    = name:Word __ "as" __ newName:Word {
+    = name:Word __ "as" __ newName:Word __ "=" __ value:NullCoalesce {
+        topLevelScope.vars.add(newName);
+        return Token.Pair(
+            "",
+            [],
+            Token.Pair("", [], Token.Identifier(name), Token.Identifier(newName)),
+            value,
+            "="
+        );
+    }
+    / name:Word __ "as" __ newName:Word {
         topLevelScope.vars.add(newName);
         return Token.Pair("", [], Token.Identifier(name), Token.Identifier(newName));
     }
@@ -376,7 +386,16 @@ DestructureLValue
         return Token.Object(tokens);
     }
 DestructureLAs
-    = name:Word __ "as" __ target:IdentifierTokenLValue {
+    = name:Word __ "as" __ target:IdentifierTokenLValue __ "=" __ value:NullCoalesce {
+        return Token.Pair(
+            "",
+            [],
+            Token.Pair("", [], Token.Identifier(name), target),
+            value,
+            "="
+        );
+    }
+    / name:Word __ "as" __ target:IdentifierTokenLValue {
         return Token.Pair("", [], Token.Identifier(name), target);
     }
 
