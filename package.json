@@ -1,6 +1,6 @@
 {
   "name": "@axel669/teascript",
-  "version": "0.14.4",
+  "version": "0.15.0",
   "description": "For people who don't care for coffee",
   "main": "TeaScript.js",
   "scripts": {
@@ -29,12 +29,12 @@
     "@axel669/arg-parser": "^0.1.0",
     "glob": "^7.1.3",
     "mkdirp": "^0.5.1",
-    "prettier": "^1.15.2",
-    "rollup-pluginutils": "^2.3.3"
+    "prettier": "^1.16.4",
+    "rollup-pluginutils": "^2.5.0"
   },
   "devDependencies": {
-    "rollup": "^1.1.0",
-    "rollup-plugin-commonjs": "^9.2.0",
-    "rollup-plugin-node-resolve": "^4.0.0"
+    "rollup": "^1.8.0",
+    "rollup-plugin-commonjs": "^9.3.0",
+    "rollup-plugin-node-resolve": "^4.0.1"
   }
 }
