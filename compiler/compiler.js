@@ -6,7 +6,7 @@ const compile = require("./tree2js.js");
 const prettyOptions = {
     tabWidth: 4,
     arrowParens: "always",
-    parser: "babylon"
+    parser: "babel"
 };
 
 module.exports = (tea, {makePretty, ...options} = {}) => {
