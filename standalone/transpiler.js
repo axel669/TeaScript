@@ -900,8 +900,8 @@
         peg$c375 = function(end) {
                 return {start: Token.Number(null, 0), end};
             },
-        peg$c376 = function(first, rest) {
-                return Token.Object(listProcess(first, rest, 1));
+        peg$c376 = function(freeze, first, rest) {
+                return Token.Object(listProcess(first, rest, 1), freeze !== null);
             },
         peg$c377 = function(decorators, key, value) {
                 const k = (key.type === "string" && key.text.length > 1) ? Token.Array([key]) : key;
@@ -13351,7 +13351,7 @@
     }
 
     function peg$parseObjectLiteral() {
-      var s0, s1, s2, s3, s4, s5, s6, s7;
+      var s0, s1, s2, s3, s4, s5, s6, s7, s8;
 
       var key    = peg$currPos * 115 + 101,
           cached = peg$resultsCache[key];
@@ -13371,67 +13371,82 @@
         if (peg$silentFails === 0) { peg$fail(peg$c10); }
       }
       if (s1 !== peg$FAILED) {
-        s2 = peg$parse_();
+        if (input.charCodeAt(peg$currPos) === 35) {
+          s2 = peg$c278;
+          peg$currPos++;
+        } else {
+          s2 = peg$FAILED;
+          if (peg$silentFails === 0) { peg$fail(peg$c279); }
+        }
+        if (s2 === peg$FAILED) {
+          s2 = null;
+        }
         if (s2 !== peg$FAILED) {
-          s3 = peg$parseObjectEntry();
-          if (s3 === peg$FAILED) {
-            s3 = null;
-          }
+          s3 = peg$parse_();
           if (s3 !== peg$FAILED) {
-            s4 = [];
-            s5 = peg$currPos;
-            s6 = peg$parse_Separator();
-            if (s6 !== peg$FAILED) {
-              s7 = peg$parseObjectEntry();
-              if (s7 === peg$FAILED) {
-                s7 = null;
-              }
-              if (s7 !== peg$FAILED) {
-                s6 = [s6, s7];
-                s5 = s6;
-              } else {
-                peg$currPos = s5;
-                s5 = peg$FAILED;
-              }
-            } else {
-              peg$currPos = s5;
-              s5 = peg$FAILED;
-            }
-            while (s5 !== peg$FAILED) {
-              s4.push(s5);
-              s5 = peg$currPos;
-              s6 = peg$parse_Separator();
-              if (s6 !== peg$FAILED) {
-                s7 = peg$parseObjectEntry();
-                if (s7 === peg$FAILED) {
-                  s7 = null;
-                }
-                if (s7 !== peg$FAILED) {
-                  s6 = [s6, s7];
-                  s5 = s6;
-                } else {
-                  peg$currPos = s5;
-                  s5 = peg$FAILED;
-                }
-              } else {
-                peg$currPos = s5;
-                s5 = peg$FAILED;
-              }
+            s4 = peg$parseObjectEntry();
+            if (s4 === peg$FAILED) {
+              s4 = null;
             }
             if (s4 !== peg$FAILED) {
-              s5 = peg$parse_();
-              if (s5 !== peg$FAILED) {
-                if (input.charCodeAt(peg$currPos) === 125) {
-                  s6 = peg$c11;
-                  peg$currPos++;
-                } else {
-                  s6 = peg$FAILED;
-                  if (peg$silentFails === 0) { peg$fail(peg$c12); }
+              s5 = [];
+              s6 = peg$currPos;
+              s7 = peg$parse_Separator();
+              if (s7 !== peg$FAILED) {
+                s8 = peg$parseObjectEntry();
+                if (s8 === peg$FAILED) {
+                  s8 = null;
                 }
+                if (s8 !== peg$FAILED) {
+                  s7 = [s7, s8];
+                  s6 = s7;
+                } else {
+                  peg$currPos = s6;
+                  s6 = peg$FAILED;
+                }
+              } else {
+                peg$currPos = s6;
+                s6 = peg$FAILED;
+              }
+              while (s6 !== peg$FAILED) {
+                s5.push(s6);
+                s6 = peg$currPos;
+                s7 = peg$parse_Separator();
+                if (s7 !== peg$FAILED) {
+                  s8 = peg$parseObjectEntry();
+                  if (s8 === peg$FAILED) {
+                    s8 = null;
+                  }
+                  if (s8 !== peg$FAILED) {
+                    s7 = [s7, s8];
+                    s6 = s7;
+                  } else {
+                    peg$currPos = s6;
+                    s6 = peg$FAILED;
+                  }
+                } else {
+                  peg$currPos = s6;
+                  s6 = peg$FAILED;
+                }
+              }
+              if (s5 !== peg$FAILED) {
+                s6 = peg$parse_();
                 if (s6 !== peg$FAILED) {
-                  peg$savedPos = s0;
-                  s1 = peg$c376(s3, s4);
-                  s0 = s1;
+                  if (input.charCodeAt(peg$currPos) === 125) {
+                    s7 = peg$c11;
+                    peg$currPos++;
+                  } else {
+                    s7 = peg$FAILED;
+                    if (peg$silentFails === 0) { peg$fail(peg$c12); }
+                  }
+                  if (s7 !== peg$FAILED) {
+                    peg$savedPos = s0;
+                    s1 = peg$c376(s2, s4, s5);
+                    s0 = s1;
+                  } else {
+                    peg$currPos = s0;
+                    s0 = peg$FAILED;
+                  }
                 } else {
                   peg$currPos = s0;
                   s0 = peg$FAILED;
@@ -14625,7 +14640,7 @@
             NewCall: tokenType("new-call", "name", "args"),
             Unary: tokenType("unary", "op", "expr", ["standAlone", true]),
             Array: tokenType("array", "items"),
-            Object: tokenType("object", "pairs"),
+            Object: tokenType("object", "pairs", "freeze"),
             Pair: tokenType("pair", "accessMod", "decorators", "key", "value", ["sep", ":"]),
             If: tokenType(
                 "if", "condition", "body", "alternate",
@@ -14885,7 +14900,13 @@
           const exprStr = expr ? genJS(expr, scope) : "";
           return `${op} ${exprStr}`.trim();
       },
-      "object": ({pairs}, scope) => `{${pairs.length === 0 ? "" : "\n"}${pairs.map(p => genJS(p, scope)).join(",\n")}}`,
+      "object": ({pairs, freeze}, scope) => {
+          const objectString = `{${pairs.length === 0 ? "" : "\n"}${pairs.map(p => genJS(p, scope)).join(",\n")}}`;
+          return (freeze === true
+              ? `Object.freeze(${objectString})`
+              : objectString
+          );
+      },
       "function-call": ({name, nullCheck, args}, scope) => {
           if (nullCheck === "?") {
               if (name.type === "bin-op" && name.op === "?.") {
@@ -14933,7 +14954,11 @@
               (current, deco) => genJS(deco, scope, current),
               genJS(value, scope)
           );
-          return `${decoString}${genJS(key, scope)}${sep} ${valueStr}`;
+          const realKey = (key.type === "string" && key.text.length > 1
+              ? {type: "array", items: [key]}
+              : key
+          );
+          return `${decoString}${genJS(realKey, scope)}${sep} ${valueStr}`;
       },
       "decorator": ({func}, scope) => `@${genJS(func, scope)}`,
       "simple-decorator": ({func}, scope, content) => `${genJS(func, scope)}(${content})`,
