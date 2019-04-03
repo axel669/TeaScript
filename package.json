@@ -36,5 +36,15 @@
     "rollup": "^1.8.0",
     "rollup-plugin-commonjs": "^9.3.0",
     "rollup-plugin-node-resolve": "^4.0.1"
-  }
+  },
+  "files": [
+    "require.js",
+    "/command-line",
+    "/compiler/compiler.js",
+    "/compiler/parser.js",
+    "/compiler/tree2js.js",
+    "/rollup",
+    "/standalone",
+    "/webpack"
+  ]
 }
