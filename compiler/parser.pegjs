@@ -47,7 +47,7 @@
         NewCall: tokenType("new-call", "name", "args"),
         Unary: tokenType("unary", "op", "expr", ["standAlone", true]),
         Array: tokenType("array", "items"),
-        Object: tokenType("object", "pairs"),
+        Object: tokenType("object", "pairs", "freeze"),
         Pair: tokenType("pair", "accessMod", "decorators", "key", "value", ["sep", ":"]),
         If: tokenType(
             "if", "condition", "body", "alternate",
@@ -955,8 +955,8 @@ SliceRange
     }
 
 ObjectLiteral
-    = "{" _ first:ObjectEntry? rest:(_Separator ObjectEntry?)* _ "}" {
-        return Token.Object(listProcess(first, rest, 1));
+    = "{" freeze:"#"? _ first:ObjectEntry? rest:(_Separator ObjectEntry?)* _ "}" {
+        return Token.Object(listProcess(first, rest, 1), freeze !== null);
     }
 ObjectEntry = Pair / Expansion
 Pair

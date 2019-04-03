@@ -107,7 +107,13 @@ const codeGen = {
         const exprStr = expr ? genJS(expr, scope) : "";
         return `${op} ${exprStr}`.trim();
     },
-    "object": ({pairs}, scope) => `{${pairs.length === 0 ? "" : "\n"}${pairs.map(p => genJS(p, scope)).join(",\n")}}`,
+    "object": ({pairs, freeze}, scope) => {
+        const objectString = `{${pairs.length === 0 ? "" : "\n"}${pairs.map(p => genJS(p, scope)).join(",\n")}}`;
+        return (freeze === true
+            ? `Object.freeze(${objectString})`
+            : objectString
+        );
+    },
     "function-call": ({name, nullCheck, args}, scope) => {
         if (nullCheck === "?") {
             if (name.type === "bin-op" && name.op === "?.") {
@@ -155,7 +161,11 @@ const codeGen = {
             (current, deco) => genJS(deco, scope, current),
             genJS(value, scope)
         );
-        return `${decoString}${genJS(key, scope)}${sep} ${valueStr}`;
+        const realKey = (key.type === "string" && key.text.length > 1
+            ? {type: "array", items: [key]}
+            : key
+        );
+        return `${decoString}${genJS(realKey, scope)}${sep} ${valueStr}`;
     },
     "decorator": ({func}, scope) => `@${genJS(func, scope)}`,
     "simple-decorator": ({func}, scope, content) => `${genJS(func, scope)}(${content})`,
