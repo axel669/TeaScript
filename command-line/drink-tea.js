@@ -6,6 +6,7 @@ const fs = require("fs");
 const glob = require("glob");
 const mkdirp = require("mkdirp");
 
+
 const transpile = require("../compiler/compiler.js");
 const argv = require("@axel669/arg-parser")({
     "_:": [i => i],
@@ -18,6 +19,10 @@ const argv = require("@axel669/arg-parser")({
     "noImport:no-import": undefined,
     "directory:d|directory|dir": [i => i, i => i]
 });
+process.argv = [
+    process.argv[0],
+    ...process.argv.slice(2)
+];
 
 const sourceFile = (argv._.length > 0)
     ? path.resolve(

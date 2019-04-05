@@ -76,7 +76,7 @@
         SimpleDecorator: tokenType("simple-decorator", "func"),
         Class: tokenType("class", "decorators", "name", "extend", "body"),
         ClassStaticMember: tokenType("class-static-member", "name", "value"),
-        ClassFunction: tokenType("class-func", "name", "decorators", "args", "body"),
+        ClassFunction: tokenType("class-func", "name", "decorators", "accessMod", "args", "body"),
         Construct: tokenType("construct", "decorators", "name", "body"),
         ConstructFunction: tokenType("construct-function", "accessMod", "scope", "name", "decorators", "args", "body"),
         ConstructVar: tokenType("construct-var", "name", "value"),
@@ -741,8 +741,8 @@ ClassStaticMember
         return Token.ClassStaticMember(null, value);
     }
 ClassFunction
-    = decorators:(_ Decorator _)* name:Word func:FunctionDecl {
-        return Token.ClassFunction(name, decorators.map(d => d[1]), func.args, func.body);
+    = decorators:(_ Decorator _)* accessMod:(("get" / "set") __)? name:Word func:FunctionDecl {
+        return Token.ClassFunction(name, decorators.map(d => d[1]), accessMod ? accessMod[0] : null, func.args, func.body);
     }
 
 Construct

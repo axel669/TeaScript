@@ -1,0 +1,14 @@
+construct Counter {
+    new(value) => {
+        #value = value
+    }
+
+    inc() => {
+        #value += 1
+    }
+    dec() => {
+        #value -= 1
+    }
+
+    get value() => #value
+}

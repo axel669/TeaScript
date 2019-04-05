@@ -405,7 +405,7 @@ const codeGen = {
         return classCode.join("\n");
     },
     "class-static-member": ({name, value}, scope) => `static ${genJS(value, scope)}`,
-    "class-func": ({name, decorators, args, body}, parentScope) => {
+    "class-func": ({name, decorators, args, body, accessMod}, parentScope) => {
         const scope = Scope(parentScope);
         const argDef = `(${args.map(i => genJS(i, scope)).join(', ')}) `;
         const bodyLines = body.map(i => genJS(i, scope) + ";").join("\n");
@@ -423,6 +423,9 @@ const codeGen = {
         }
         if (scope.flags.async === true) {
             funcName = `async ${funcName}`;
+        }
+        if (accessMod !== null) {
+            funcName = `${accessMod} ${funcName}`;
         }
 
         return `${funcName}${argDef}{\n${code}\n}`;
