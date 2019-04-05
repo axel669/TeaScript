@@ -6,7 +6,7 @@
   "scripts": {
     "test": "pegjs --cache TeaScript.pegjs | node test.js",
     "tea": "node ./command-line/drink-tea.js",
-    "build-parser": "pegjs --cache compiler/parser.pegjs",
+    "build-parser": "pegjs --cache compiler/parser.pegjs && rollup -c",
     "build-standalone": "rollup -c"
   },
   "bin": {
